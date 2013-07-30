@@ -1,9 +1,10 @@
-WoT-Replay-BattleResult-To-JSON v8.7.0 / wotrp2j.pyc
+WoT-Replay-To-JSON v8.7.0 / wotrp2j.pyc
 
 Author: Marius Czyz aka Phalynx
 Contact: marius.czyz@gmail.com
 Website: http://www.vbaddict.net
 Wiki: http://wiki.vbaddict.net
+Repo: https://github.com/Phalynx/WoT-Replay-To-JSON
 
 == Supported Versions
 	* WoT 0.7.x and higher. 
