@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-###################################################
-# World of Tanks Replay Battle Result to JSON     #
-# Initial version by Phalynx www.vbaddict.net     #
-###################################################
+#################################
+# World of Tanks Replay to JSON #
+# Phalynx www.vbaddict.net      #
+###############################'#
 
 import cPickle, struct, json, time, sys, os, shutil, datetime, re
 from itertools import izip
@@ -14,7 +14,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-  parserversion = "0.8.7.0"
+	parserversion = "0.8.7.0"
 	
 	global option_console, option_chat
 	option_console = 0
@@ -28,7 +28,7 @@ def main():
 				option_chat = 1
 
 
-	printmessage('###### WoT-Replay-BattleResult-To-JSON ' + parserversion + " by vBAddict.net")
+	printmessage('###### WoT-Replay-To-JSON ' + parserversion + " by vBAddict.net")
 
 	filename_source = str(sys.argv[1])
 	
@@ -39,7 +39,7 @@ def main():
 	result_blocks['identify'] = dict()
 	result_blocks['identify']['arenaUniqueID'] = 0
 	
-	result_blocks['common']['parser'] = "WoT-Replay-BattleResult-To-JSON " + parserversion + " by http://www.vbaddict.net"
+	result_blocks['common']['parser'] = "WoT-Replay-To-JSON " + parserversion + " by http://www.vbaddict.net"
 	
 	if not os.path.exists(filename_source) or not os.path.isfile(filename_source) or not os.access(filename_source, os.R_OK):
 		result_blocks['common']['message'] = 'cannot read file ' + filename_source
@@ -386,6 +386,8 @@ def decompress_file(fn):
 	        o.write(zlib.decompress(i.read()))
 	        return fn + ".out"
 	    os.unlink(fn)
+
+
 
 
 
