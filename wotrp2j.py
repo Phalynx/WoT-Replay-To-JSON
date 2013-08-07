@@ -14,7 +14,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-	parserversion = "0.8.7.0"
+	parserversion = "0.8.7.1"
 	
 	global option_console, option_chat
 	option_console = 0
@@ -109,7 +109,7 @@ def main():
 			result_blocks['common']['message'] = e.message
 			dumpjson(result_blocks, filename_source, 1)
 
-	#result_blocks = get_identify(result_blocks)
+	result_blocks = get_identify(result_blocks)
 
 
 	if option_chat==1:
@@ -172,8 +172,17 @@ def get_identify(result_blocks):
 	
 	
 	tankSlug = tankSlug.replace('-', '_')
+	
+	mapsdata = get_json_data("maps.json")
+	mapid=0
+	for mapdata in mapsdata:
+		if mapdata['mapidname'] == result_blocks['identify']['mapName']:
+				mapid = mapdata['mapid']
+				break
+	
+	result_blocks['identify']['mapid'] = mapid
+	
 	tanksdata = get_json_data("tanks.json")
-
 	tankid=0
 	for tankdata in tanksdata:
 		if tankdata['icon'] == tankSlug.lower():
@@ -186,8 +195,34 @@ def get_identify(result_blocks):
 	result_blocks['identify']['error'] = 'none'
 	result_blocks['identify']['error_details'] = 'none'
 
-	return result_blocks
 
+	if not "datablock_battle_result" in result_blocks['common']:
+		return result_blocks
+
+	correct_battle_result = 1;
+	
+	if result_blocks['identify']['mapid'] != result_blocks['datablock_battle_result']['common']['arenaTypeID']:
+		correct_battle_result = 0
+	
+	typeCompDescr = make_typeCompDescr(result_blocks['identify']['countryid'], result_blocks['identify']['tankid'])
+
+	if typeCompDescr != result_blocks['datablock_battle_result']['personal']['typeCompDescr']:
+		correct_battle_result = 0
+
+
+	if correct_battle_result == 0:
+		del result_blocks['datablock_battle_result']
+		result_blocks['common']['datablock_battle_result'] = -1
+		result_blocks['identify']['arenaUniqueID'] = 0
+
+
+	return result_blocks
+	
+def make_typeCompDescr(countryid, tankid):
+	countryshift = 1 + (countryid << 4)
+	return (tankid << 8) + countryshift
+	
+	
 
 def decode_crits(details_data):
 	"""
@@ -255,7 +290,7 @@ def dumpjson(mydict, filename_source, exitcode):
 		
 		finalfile.write(json.dumps(mydict, sort_keys=True, indent=4))	
 	else:
-		print json.dumps(mydict, sort_keys=True, indent=4, ensure_ascii=False)
+		print json.dumps(mydict, sort_keys=True, indent=4)
 
 	sys.exit(exitcode)
 
