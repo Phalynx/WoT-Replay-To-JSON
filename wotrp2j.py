@@ -14,7 +14,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-	parserversion = "0.8.7.1"
+	parserversion = "0.8.9.0"
 	
 	global option_console, option_chat
 	option_console = 0
@@ -73,7 +73,7 @@ def main():
 		try:
 			f.seek(startPointer)
 			size = f.read(4)
-			datablockSize[blockNum] = struct.unpack("I",size)[0]
+			datablockSize[blockNum] = struct.unpack("I", size)[0]
 			datablockPointer[blockNum] = startPointer + 4
 			startPointer=datablockPointer[blockNum]+datablockSize[blockNum]
 			blockNum += 1
@@ -89,12 +89,18 @@ def main():
 					br_block = cPickle.loads(myblock)
 	
 					for key, value in br_block['vehicles'].items():
-						br_block['vehicles'][key]['details'] = decode_details(value['details'])
-						br_block['vehicles'][key]['details'] = decode_crits(br_block['vehicles'][key]['details'])
+						if 'details' in br_block['vehicles'][key]:
+							del br_block['vehicles'][key]['details']
+					
+						
+						#br_block['vehicles'][key]['details'] = decode_details(value['details'])
+						#br_block['vehicles'][key]['details'] = decode_crits(br_block['vehicles'][key]['details'])
 						
 					br_block['personal']['details'] = decode_crits(br_block['personal']['details'])
-				
+					
 					result_blocks['datablock_battle_result'] = br_block
+					result_blocks['datablock_battle_result']['common']['gameplayID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] >> 16
+					result_blocks['datablock_battle_result']['common']['arenaTypeID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] & 32767
 					result_blocks['common']['datablock_battle_result'] = 1
 					result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_battle_result']['arenaUniqueID']
 				else:
@@ -170,6 +176,9 @@ def get_identify(result_blocks):
 		countryid = 5
 		tankSlug = tankSlug.replace('uk-', '')
 	
+	if "japan-" in tank:
+		countryid = 6
+		tankSlug = tankSlug.replace('japan-', '')
 	
 	tankSlug = tankSlug.replace('-', '_')
 	
@@ -201,6 +210,7 @@ def get_identify(result_blocks):
 
 	correct_battle_result = 1;
 	
+
 	if result_blocks['identify']['mapid'] != result_blocks['datablock_battle_result']['common']['arenaTypeID']:
 		correct_battle_result = 0
 	
@@ -211,6 +221,7 @@ def get_identify(result_blocks):
 
 
 	if correct_battle_result == 0:
+		printmessage('Incorrect Battle Result')
 		del result_blocks['datablock_battle_result']
 		result_blocks['common']['datablock_battle_result'] = -1
 		result_blocks['identify']['arenaUniqueID'] = 0
@@ -298,9 +309,10 @@ def dumpjson(mydict, filename_source, exitcode):
 
 def get_json_data(filename):
 	import json, time, sys, os
+	filename = os.getcwd() + '\\' + filename
 	
 	#os.chdir(os.getcwd())
-	os.chdir(sys.path[0])
+	#os.chdir(sys.path[0])
 	
 	
 	if not os.path.exists(filename) or not os.path.isfile(filename) or not os.access(filename, os.R_OK):
