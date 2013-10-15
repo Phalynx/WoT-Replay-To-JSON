@@ -1,11 +1,12 @@
-WoT-Replay-To-JSON v8.9.0 / wotrp2j.pyc
+WoT-Replay-To-JSON v8.9.0 
 ==============================================================
 
-Author: Marius Czyz aka Phalynx
-Contact: marius.czyz@gmail.com
-Website: http://www.vbaddict.net
-Wiki: http://wiki.vbaddict.net
-Repo: https://github.com/Phalynx/WoT-Replay-To-JSON
+* wotrp2j.py
+* Author: Marius Czyz aka Phalynx
+* Contact: marius.czyz@gmail.com
+* Website: http://www.vbaddict.net
+* Wiki: http://wiki.vbaddict.net
+* Repo: https://github.com/Phalynx/WoT-Replay-To-JSON
 
 # Supported Versions
 * WoT 0.7.x and higher. 
@@ -45,7 +46,7 @@ Repo: https://github.com/Phalynx/WoT-Replay-To-JSON
 * datablock_1
 * datablock_2 - not always available
 * datablock_battle_result - available only for replays created by WoT 0.8.2 or higher
-		Value of -1 is indicating a corrupt/wrong inserted Battle Result due to a bug in WoT
+	Value of -1 is indicating a corrupt/wrong inserted Battle Result due to a bug in WoT
 * chat - Available only with the option -chat
 * identify - Contains data used by vBAddict to identify a replay
 	
