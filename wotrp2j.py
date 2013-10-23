@@ -14,7 +14,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-	parserversion = "0.8.9.0"
+	parserversion = "0.8.9.1"
 	
 	global option_console, option_chat
 	option_console = 0
@@ -309,10 +309,9 @@ def dumpjson(mydict, filename_source, exitcode):
 
 def get_json_data(filename):
 	import json, time, sys, os
-	filename = os.getcwd() + '\\' + filename
 	
 	#os.chdir(os.getcwd())
-	#os.chdir(sys.path[0])
+	os.chdir(sys.path[0])
 	
 	
 	if not os.path.exists(filename) or not os.path.isfile(filename) or not os.access(filename, os.R_OK):
@@ -331,6 +330,7 @@ def get_json_data(filename):
 	file_json.close()
 
 	return file_data
+
 
 def catch_fatal(message):
 	printmessage(message)
