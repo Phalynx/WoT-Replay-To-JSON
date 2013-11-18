@@ -16,7 +16,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-	parserversion = "0.8.9.0"
+	parserversion = "0.8.9.2"
 
 	global option_console, option_chat
 	option_console = 0
