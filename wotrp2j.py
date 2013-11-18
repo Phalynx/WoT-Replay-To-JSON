@@ -6,16 +6,18 @@
 # Phalynx www.vbaddict.net      #
 ###############################'#
 
-import cPickle, struct, json, time, sys, os, shutil, datetime, re
+import cPickle, struct, json, time, sys, os, shutil, datetime, re, codecs
 from itertools import izip
+
+
 
 VEHICLE_DEVICE_TYPE_NAMES = ('engine', 'ammoBay', 'fuelTank', 'radio', 'track', 'gun', 'turretRotator', 'surveyingDevice')
 VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'loader')
 
 def main():
 
-	parserversion = "0.8.9.1"
-	
+	parserversion = "0.8.9.0"
+
 	global option_console, option_chat
 	option_console = 0
 	option_chat = 0
@@ -89,6 +91,9 @@ def main():
 					br_block = cPickle.loads(myblock)
 	
 					for key, value in br_block['vehicles'].items():
+						br_block['vehicles'][key]['tankID'] = br_block['vehicles'][key]['typeCompDescr'] >> 8 & 65535
+						br_block['vehicles'][key]['countryID'] = br_block['vehicles'][key]['typeCompDescr'] >> 4 & 15
+
 						if 'details' in br_block['vehicles'][key]:
 							del br_block['vehicles'][key]['details']
 					
@@ -101,6 +106,14 @@ def main():
 					result_blocks['datablock_battle_result'] = br_block
 					result_blocks['datablock_battle_result']['common']['gameplayID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] >> 16
 					result_blocks['datablock_battle_result']['common']['arenaTypeID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] & 32767
+					for key, value in result_blocks['datablock_battle_result']['players'].items(): 
+						for vkey, vvalue in result_blocks['datablock_battle_result']['vehicles'].items(): 
+							if result_blocks['datablock_battle_result']['vehicles'][vkey]['accountDBID'] == key: 
+								result_blocks['datablock_battle_result']['players'][key]['vehicleid'] = vkey 
+								break
+								
+
+	
 					result_blocks['common']['datablock_battle_result'] = 1
 					result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_battle_result']['arenaUniqueID']
 				else:
@@ -296,10 +309,30 @@ def dumpjson(mydict, filename_source, exitcode):
 	if option_console==0:
 		filename_target = os.path.splitext(filename_source)[0]
 		filename_target = filename_target + '.json'
-				
-		finalfile = open(filename_target, 'w')
 		
-		finalfile.write(json.dumps(mydict, sort_keys=True, indent=4))	
+		if option_chat==0:
+			finalfile = open(filename_target, 'w')
+			finalfile.write(json.dumps(mydict, sort_keys=True, indent=4)) 		
+			finalfile.close()
+			
+		else:
+			# Patch by kuzyara
+			reload(sys)
+			sys.setdefaultencoding("utf-8")
+			jsondata = json.dumps(mydict, sort_keys=True, indent=4)
+			jsondata = jsondata.replace('\\\\x','\\x')
+			
+			#convert unicode codepoint to char
+			jsondata = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: unichr(int(m.group(1), 16)).encode('utf8'), jsondata)
+			#convert utf8 hex to char
+			jsondata = re.sub(r'\\x([0-9a-fA-F]{2})\\x([0-9a-fA-F]{2})',lambda m: (m.group(1)+m.group(2)).decode('hex').decode('utf-8') ,str(jsondata))
+			
+			finalfile = codecs.open(filename_target, "w", "utf-8")
+			#write BOM
+			finalfile.write(u'\ufeff')
+			finalfile.write(jsondata)
+			finalfile.close()
+ 
 	else:
 		print json.dumps(mydict, sort_keys=True, indent=4)
 
@@ -311,6 +344,7 @@ def get_json_data(filename):
 	import json, time, sys, os
 	
 	#os.chdir(os.getcwd())
+	#os.chdir("C:\wotftp\wotrp2j")
 	os.chdir(sys.path[0])
 	
 	
