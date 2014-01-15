@@ -16,7 +16,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-	parserversion = "0.8.9.2"
+	parserversion = "0.8.10.0"
 
 	global option_console, option_chat
 	option_console = 0
@@ -91,9 +91,11 @@ def main():
 					br_block = cPickle.loads(myblock)
 	
 					for key, value in br_block['vehicles'].items():
-						br_block['vehicles'][key]['tankID'] = br_block['vehicles'][key]['typeCompDescr'] >> 8 & 65535
-						br_block['vehicles'][key]['countryID'] = br_block['vehicles'][key]['typeCompDescr'] >> 4 & 15
-
+						
+						if br_block['vehicles'][key]['typeCompDescr'] > 0:
+							br_block['vehicles'][key]['tankID'] = br_block['vehicles'][key]['typeCompDescr'] >> 8 & 65535
+							br_block['vehicles'][key]['countryID'] = br_block['vehicles'][key]['typeCompDescr'] >> 4 & 15
+						
 						if 'details' in br_block['vehicles'][key]:
 							del br_block['vehicles'][key]['details']
 					
