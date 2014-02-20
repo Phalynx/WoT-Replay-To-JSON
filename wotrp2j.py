@@ -10,17 +10,24 @@ import cPickle, struct, json, time, sys, os, shutil, datetime, re, codecs
 from itertools import izip
 
 
-
 VEHICLE_DEVICE_TYPE_NAMES = ('engine', 'ammoBay', 'fuelTank', 'radio', 'track', 'gun', 'turretRotator', 'surveyingDevice')
 VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'loader')
 
 def main():
 
-	parserversion = "0.8.10.0"
+	parserversion = "0.8.11.2"
 
-	global option_console, option_chat
+	global option_console, option_chat, option_server, filename_source
 	option_console = 0
 	option_chat = 0
+	option_server = 0
+	
+	filename_source = ""
+	
+	replay_version = "0.0.0.0"
+	replay_version_dict = ['0', '0', '0', '0']
+	
+	
 	
 	for argument in sys.argv:
 			if argument == "-c":
@@ -29,8 +36,15 @@ def main():
 			if argument == "-chat":
 				option_chat = 1
 
+			if argument == "-s":
+				option_server = 1
+			
 
 	printmessage('###### WoT-Replay-To-JSON ' + parserversion + " by vBAddict.net")
+
+	if len(sys.argv)==1:
+				printmessage('Please specify filename and options')
+				sys.exit(2)
 
 	filename_source = str(sys.argv[1])
 	
@@ -73,6 +87,7 @@ def main():
 
 	while numofblocks >= 1:
 		try:
+			printmessage("Getting Block " + str(blockNum))
 			f.seek(startPointer)
 			size = f.read(4)
 			datablockSize[blockNum] = struct.unpack("I", size)[0]
@@ -80,55 +95,74 @@ def main():
 			startPointer=datablockPointer[blockNum]+datablockSize[blockNum]
 			blockNum += 1
 			numofblocks -= 1
-	
-			for i in datablockSize:
-				
-				
-				f.seek(datablockPointer[i])
-									
-				myblock = f.read(int(datablockSize[i]))
-				if 'arenaUniqueID' in myblock:
-					br_block = cPickle.loads(myblock)
-	
-					for key, value in br_block['vehicles'].items():
-						
-						if br_block['vehicles'][key]['typeCompDescr'] > 0:
-							br_block['vehicles'][key]['tankID'] = br_block['vehicles'][key]['typeCompDescr'] >> 8 & 65535
-							br_block['vehicles'][key]['countryID'] = br_block['vehicles'][key]['typeCompDescr'] >> 4 & 15
-						
-						if 'details' in br_block['vehicles'][key]:
-							del br_block['vehicles'][key]['details']
-					
-						
-						#br_block['vehicles'][key]['details'] = decode_details(value['details'])
-						#br_block['vehicles'][key]['details'] = decode_crits(br_block['vehicles'][key]['details'])
-						
-					br_block['personal']['details'] = decode_crits(br_block['personal']['details'])
-					
-					result_blocks['datablock_battle_result'] = br_block
-					result_blocks['datablock_battle_result']['common']['gameplayID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] >> 16
-					result_blocks['datablock_battle_result']['common']['arenaTypeID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] & 32767
-					for key, value in result_blocks['datablock_battle_result']['players'].items(): 
-						for vkey, vvalue in result_blocks['datablock_battle_result']['vehicles'].items(): 
-							if result_blocks['datablock_battle_result']['vehicles'][vkey]['accountDBID'] == key: 
-								result_blocks['datablock_battle_result']['players'][key]['vehicleid'] = vkey 
-								break
-								
-
-	
-					result_blocks['common']['datablock_battle_result'] = 1
-					result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_battle_result']['arenaUniqueID']
-				else:
-					blockdict = dict()
-					blockdict = json.loads(myblock)
-					result_blocks['datablock_' + str(i)] = blockdict
-					result_blocks['common']['datablock_' + str(i)] = 1
-	
-			result_blocks['common']['message'] = "ok"
-
 		except Exception, e:
 			result_blocks['common']['message'] = e.message
 			dumpjson(result_blocks, filename_source, 1)
+		
+	for i in datablockSize:
+		
+		#try:
+		f.seek(datablockPointer[i])
+							
+		myblock = f.read(int(datablockSize[i]))
+
+		if 'arenaUniqueID' in myblock:
+
+			#print type(replay_version_dict), replay_version_dict
+			if (int(replay_version_dict[1]) == 8 and int(replay_version_dict[2]) > 10) or int(replay_version_dict[1]) > 8 or myblock[0]=='[':
+				br_json_list = json.loads(myblock)
+				br_block = br_json_list[0]
+			else:
+				br_block = cPickle.loads(myblock)				
+				
+			if 'vehicles' in br_block:
+				for key, value in br_block['vehicles'].items():
+					
+					if br_block['vehicles'][key]['typeCompDescr'] > 0:
+						br_block['vehicles'][key]['tankID'] = br_block['vehicles'][key]['typeCompDescr'] >> 8 & 65535
+						br_block['vehicles'][key]['countryID'] = br_block['vehicles'][key]['typeCompDescr'] >> 4 & 15
+					
+					if 'details' in br_block['vehicles'][key]:
+						del br_block['vehicles'][key]['details']
+				
+					
+					#br_block['vehicles'][key]['details'] = decode_details(value['details'])
+					#br_block['vehicles'][key]['details'] = decode_crits(br_block['vehicles'][key]['details'])
+					
+				br_block['personal']['details'] = decode_crits(br_block['personal']['details'])
+				
+				result_blocks['datablock_battle_result'] = br_block
+				result_blocks['datablock_battle_result']['common']['gameplayID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] >> 16
+				result_blocks['datablock_battle_result']['common']['arenaTypeID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] & 32767
+				for key, value in result_blocks['datablock_battle_result']['players'].items(): 
+					for vkey, vvalue in result_blocks['datablock_battle_result']['vehicles'].items(): 
+						if result_blocks['datablock_battle_result']['vehicles'][vkey]['accountDBID'] == key: 
+							result_blocks['datablock_battle_result']['players'][key]['vehicleid'] = vkey 
+							break
+						
+
+
+				result_blocks['common']['datablock_battle_result'] = 1
+				result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_battle_result']['arenaUniqueID']
+		else:
+			blockdict = dict()
+			blockdict = json.loads(myblock)
+			
+			if 'clientVersionFromExe' in blockdict:
+				replay_version = cleanReplayVersion(blockdict['clientVersionFromExe'])
+				result_blocks['common']['replay_version'] = replay_version
+				result_blocks['identify']['replay_version'] = replay_version
+				replay_version_dict = replay_version.split('.')
+				printmessage("Replay Version: " + str(replay_version))
+			
+			result_blocks['datablock_' + str(i)] = blockdict
+			result_blocks['common']['datablock_' + str(i)] = 1
+
+		result_blocks['common']['message'] = "ok"
+
+		#except Exception, e:
+		#	result_blocks['common']['message'] = e.message
+		#	dumpjson(result_blocks, filename_source, 1)
 
 	result_blocks = get_identify(result_blocks)
 
@@ -146,6 +180,12 @@ def main():
 	dumpjson(result_blocks, filename_source, 0)
 
 
+def cleanReplayVersion(replay_version):
+	replay_version = replay_version.replace(', ', '.')
+	replay_version = replay_version.replace(' ', '.')
+	#return replay_version.split('.')[:3]
+	return replay_version
+
 # Create block to identify replay even without arenaUniqueID, needed for vBAddict.net
 def get_identify(result_blocks):
 	
@@ -155,6 +195,7 @@ def get_identify(result_blocks):
 		if result_blocks['datablock_1']['vehicles'][key]['name'] == result_blocks['datablock_1']['playerName']:
 			internaluserID = key
 			break
+	
 	result_blocks['identify']['internaluserID'] = internaluserID
 	
 	result_blocks['identify']['arenaCreateTime'] = int(time.mktime(datetime.datetime.strptime(result_blocks['datablock_1']['dateTime'], "%d.%m.%Y %H:%M:%S").timetuple()))
@@ -223,6 +264,21 @@ def get_identify(result_blocks):
 	if not "datablock_battle_result" in result_blocks['common']:
 		return result_blocks
 
+	result_blocks['datablock_battle_result']['personal']['tankid'] = tankid
+	result_blocks['datablock_battle_result']['personal']['countryid'] = countryid
+	result_blocks['datablock_battle_result']['personal']['countryid'] = countryid
+	result_blocks['datablock_battle_result']['personal']['won'] = True if result_blocks['datablock_battle_result']['common']['winnerTeam'] == result_blocks['datablock_battle_result']['personal']['team'] else False
+
+	for key, value in result_blocks['datablock_battle_result']['players'].items(): 
+	    result_blocks['datablock_battle_result']['players'][key]['platoonID'] = result_blocks['datablock_battle_result']['players'][key]['prebattleID'] 
+	    del result_blocks['datablock_battle_result']['players'][key]['prebattleID'] 
+	      
+	    for vkey, vvalue in result_blocks['datablock_battle_result']['vehicles'].items(): 
+	        if result_blocks['datablock_battle_result']['vehicles'][vkey]['accountDBID'] == key: 
+	            result_blocks['datablock_battle_result']['players'][key]['vehicleid'] = vkey 
+	            break
+
+
 	correct_battle_result = 1;
 	
 
@@ -288,7 +344,20 @@ def decode_crits(details_data):
 		
 	return details_data
 	
-	
+  
+def write_to_log(logtext): 
+    import datetime, os 
+      
+    global option_server, filename_source
+      
+   # print logtext 
+    now = datetime.datetime.now() 
+      
+      
+    if option_server == 1: 
+        logFile = open("/var/log/wotdc2j/wotdc2j.log", "a+b") 
+        logFile.write(str(now.strftime("%Y-%m-%d %H:%M:%S")) + " # " + str(logtext) + " # " + str(filename_source) + "\r\n") 
+        logFile.close() 
 
 def printmessage(message):
 	global option_console
@@ -305,7 +374,8 @@ def dumpjson(mydict, filename_source, exitcode):
 		mydict['common']['status'] = "ok"
 	else:
 		mydict['common']['status'] = "error"
-		printmessage("Errors occurred.")
+		printmessage("Errors occurred: " + str(mydict['common']['message']))
+		write_to_log("WOTRP2J: " + str(mydict['common']['message']))
 	
 	
 	if option_console==0:
@@ -341,15 +411,25 @@ def dumpjson(mydict, filename_source, exitcode):
 	sys.exit(exitcode)
 
 
+def get_current_working_path():
+	#workaround for py2exe
+	import sys, os
+	
+	try:
+		if hasattr(sys, "frozen"):
+			return os.path.dirname(unicode(sys.executable, sys.getfilesystemencoding( )))
+		else:
+			return sys.path[0]
+	except Exception, e:
+		print e.message
 
 def get_json_data(filename):
 	import json, time, sys, os
-	
-	#os.chdir(os.getcwd())
-	#os.chdir("C:\wotftp\wotrp2j")
-	os.chdir(sys.path[0])
-	
-	
+
+	current_working_path = get_current_working_path()
+
+	os.chdir(current_working_path)
+		
 	if not os.path.exists(filename) or not os.path.isfile(filename) or not os.access(filename, os.R_OK):
 		catch_fatal(filename + " does not exists!")
 		sys.exit(1)
