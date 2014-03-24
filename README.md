@@ -1,4 +1,4 @@
-WoT-Replay-To-JSON v8.11.0 
+WoT-Replay-To-JSON v9.0.0 
 ==============================================================
 
 * wotrp2j.py
@@ -10,7 +10,7 @@ WoT-Replay-To-JSON v8.11.0
 
 # Supported Versions
 * WoT 0.7.x and higher. 
-* Latest tested version: WoT 0.8.11.
+* Latest tested version: WoT 0.9.0.
 
 # Python
 * You need Python 2.7, or just use the compiled version wotrp2j.exe
