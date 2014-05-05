@@ -7,18 +7,17 @@
 ###############################'#
 
 import cPickle, struct, json, time, sys, os, shutil, datetime, re, codecs
-from itertools import izip
-
 
 VEHICLE_DEVICE_TYPE_NAMES = ('engine', 'ammoBay', 'fuelTank', 'radio', 'track', 'gun', 'turretRotator', 'surveyingDevice')
 VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'loader')
 
 def main():
 
-	parserversion = "0.8.11.2"
+	parserversion = "0.9.0.2"
 
-	global option_console, option_chat, option_server, filename_source
+	global option_console, option_advanced, option_chat, option_server, filename_source
 	option_console = 0
+	option_advanced = 0
 	option_chat = 0
 	option_server = 0
 	
@@ -27,15 +26,17 @@ def main():
 	replay_version = "0.0.0.0"
 	replay_version_dict = ['0', '0', '0', '0']
 	
-	
-	
+
 	for argument in sys.argv:
 			if argument == "-c":
 				option_console = 1
 				
+			if argument == "-a":
+				option_advanced = 1
+
 			if argument == "-chat":
 				option_chat = 1
-
+				
 			if argument == "-s":
 				option_server = 1
 			
@@ -99,80 +100,98 @@ def main():
 			result_blocks['common']['message'] = e.message
 			dumpjson(result_blocks, filename_source, 1)
 		
+
 	for i in datablockSize:
 		
-		#try:
-		f.seek(datablockPointer[i])
-							
-		myblock = f.read(int(datablockSize[i]))
+		try:
+			f.seek(datablockPointer[i])
+								
+			myblock = f.read(int(datablockSize[i]))
 
-		if 'arenaUniqueID' in myblock:
+			js = json.loads(myblock)
 
-			#print type(replay_version_dict), replay_version_dict
-			if (int(replay_version_dict[1]) == 8 and int(replay_version_dict[2]) > 10) or int(replay_version_dict[1]) > 8 or myblock[0]=='[':
-				br_json_list = json.loads(myblock)
-				br_block = br_json_list[0]
-			else:
-				br_block = cPickle.loads(myblock)				
-				
-			if 'vehicles' in br_block:
-				for key, value in br_block['vehicles'].items():
+			if 'arenaUniqueID' in myblock:
+
+				#print type(replay_version_dict), replay_version_dict
+				if (int(replay_version_dict[1]) == 8 and int(replay_version_dict[2]) > 10) or int(replay_version_dict[1]) > 8 or myblock[0]=='[':
+					br_json_list = json.loads(myblock)
 					
-					if br_block['vehicles'][key]['typeCompDescr'] > 0:
-						br_block['vehicles'][key]['tankID'] = br_block['vehicles'][key]['typeCompDescr'] >> 8 & 65535
-						br_block['vehicles'][key]['countryID'] = br_block['vehicles'][key]['typeCompDescr'] >> 4 & 15
+					br_block = br_json_list[0]
+
+					if len(br_json_list) > 0:
+						result_blocks['datablock_1']['vehicles'] = br_json_list[1]
+
+					if len(br_json_list) > 1:
+						result_blocks['datablock_1']['kills'] = br_json_list[2]
+
+				else:
+					br_block = cPickle.loads(myblock)				
 					
-					if 'details' in br_block['vehicles'][key]:
-						del br_block['vehicles'][key]['details']
-				
-					
-					#br_block['vehicles'][key]['details'] = decode_details(value['details'])
-					#br_block['vehicles'][key]['details'] = decode_crits(br_block['vehicles'][key]['details'])
-					
-				br_block['personal']['details'] = decode_crits(br_block['personal']['details'])
-				
-				result_blocks['datablock_battle_result'] = br_block
-				result_blocks['datablock_battle_result']['common']['gameplayID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] >> 16
-				result_blocks['datablock_battle_result']['common']['arenaTypeID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] & 32767
-				for key, value in result_blocks['datablock_battle_result']['players'].items(): 
-					for vkey, vvalue in result_blocks['datablock_battle_result']['vehicles'].items(): 
-						if result_blocks['datablock_battle_result']['vehicles'][vkey]['accountDBID'] == key: 
-							result_blocks['datablock_battle_result']['players'][key]['vehicleid'] = vkey 
-							break
+				if 'vehicles' in br_block:
+					for key, value in br_block['vehicles'].items():
 						
+						if br_block['vehicles'][key]['typeCompDescr'] > 0:
+							br_block['vehicles'][key]['tankID'] = br_block['vehicles'][key]['typeCompDescr'] >> 8 & 65535
+							br_block['vehicles'][key]['countryID'] = br_block['vehicles'][key]['typeCompDescr'] >> 4 & 15
+						
+						if 'details' in br_block['vehicles'][key]:
+							del br_block['vehicles'][key]['details']
+					
+						
+						#br_block['vehicles'][key]['details'] = decode_details(value['details'])
+						#br_block['vehicles'][key]['details'] = decode_crits(br_block['vehicles'][key]['details'])
+						
+					br_block['personal']['details'] = decode_crits(br_block['personal']['details'])
+					
+					br_block['personal'] = keepCompatibility(br_block['personal'])
+					
+					result_blocks['datablock_battle_result'] = br_block
+					result_blocks['datablock_battle_result']['common']['gameplayID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] >> 16
+					result_blocks['datablock_battle_result']['common']['arenaTypeID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] & 32767
+					
+					for key, value in result_blocks['datablock_battle_result']['players'].items(): 
+						for vkey, vvalue in result_blocks['datablock_battle_result']['vehicles'].items(): 
+							if result_blocks['datablock_battle_result']['vehicles'][vkey]['accountDBID'] == key: 
+								result_blocks['datablock_battle_result']['players'][key]['vehicleid'] = vkey 
+								break
 
+					result_blocks['common']['datablock_battle_result'] = 1
+					result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_battle_result']['arenaUniqueID']
+					
+			else:
+				blockdict = dict()
+				blockdict = json.loads(myblock)
+				
+				if 'clientVersionFromExe' in blockdict:
+					replay_version = cleanReplayVersion(blockdict['clientVersionFromExe'])
+					result_blocks['common']['replay_version'] = replay_version
+					result_blocks['identify']['replay_version'] = replay_version
+					replay_version_dict = replay_version.split('.')
+					printmessage("Replay Version: " + str(replay_version))
+				
+				result_blocks['datablock_' + str(i)] = blockdict
+				result_blocks['common']['datablock_' + str(i)] = 1
 
-				result_blocks['common']['datablock_battle_result'] = 1
-				result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_battle_result']['arenaUniqueID']
-		else:
-			blockdict = dict()
-			blockdict = json.loads(myblock)
-			
-			if 'clientVersionFromExe' in blockdict:
-				replay_version = cleanReplayVersion(blockdict['clientVersionFromExe'])
-				result_blocks['common']['replay_version'] = replay_version
-				result_blocks['identify']['replay_version'] = replay_version
-				replay_version_dict = replay_version.split('.')
-				printmessage("Replay Version: " + str(replay_version))
-			
-			result_blocks['datablock_' + str(i)] = blockdict
-			result_blocks['common']['datablock_' + str(i)] = 1
+			result_blocks['common']['message'] = "ok"
 
-		result_blocks['common']['message'] = "ok"
-
-		#except Exception, e:
-		#	result_blocks['common']['message'] = e.message
-		#	dumpjson(result_blocks, filename_source, 1)
+		except Exception, e:
+			result_blocks['common']['message'] = e.message
+			dumpjson(result_blocks, filename_source, 1)
 
 	result_blocks = get_identify(result_blocks)
 
+	if option_advanced==1 or option_chat==1:
 
-	if option_chat==1:
 		decfile = decrypt_file(filename_source, startPointer)
 		uncompressed = decompress_file(decfile)
-           
-		result_blocks['chat'] = extract_chats(uncompressed)
+		if option_advanced==1:
+			result_blocks['datablock_advanced'] = extract_advanced(uncompressed)
+			result_blocks['common']['datablock_advanced'] = 1
 
+		if option_chat==1:
+			result_blocks['chat'] = extract_chats(uncompressed)
+			result_blocks['common']['datablock_chat'] = 1
+			
 		os.unlink(decfile)
 		os.unlink(uncompressed)
 	
@@ -198,7 +217,11 @@ def get_identify(result_blocks):
 	
 	result_blocks['identify']['internaluserID'] = internaluserID
 	
-	result_blocks['identify']['arenaCreateTime'] = int(time.mktime(datetime.datetime.strptime(result_blocks['datablock_1']['dateTime'], "%d.%m.%Y %H:%M:%S").timetuple()))
+	try:
+		result_blocks['identify']['arenaCreateTime'] = int(time.mktime(datetime.datetime.strptime(result_blocks['datablock_1']['dateTime'], "%d.%m.%Y %H:%M:%S").timetuple()))
+	except Exception, e:
+		result_blocks['identify']['arenaCreateTime'] = int(time.time())
+		
 	result_blocks['identify']['playername'] = result_blocks['datablock_1']['playerName']
 	result_blocks['identify']['accountDBID'] = result_blocks['datablock_1']['playerID']
 	result_blocks['identify']['mapName'] = result_blocks['datablock_1']['mapName']
@@ -304,7 +327,32 @@ def make_typeCompDescr(countryid, tankid):
 	countryshift = 1 + (countryid << 4)
 	return (tankid << 8) + countryshift
 	
-	
+def keepCompatibility(structureddata):
+	# Compatibility with older versions
+	# Some names changed in WoT 0.9.0
+		
+	if 'directHits' in structureddata:
+		structureddata['hits'] = structureddata['directHits']
+		
+	if 'explosionHits' in structureddata:
+		structureddata['he_hits'] = structureddata['explosionHits']
+		
+	if 'piercings' in structureddata:
+		structureddata['pierced'] = structureddata['piercings']
+				
+	if 'explosionHitsReceived' in structureddata:
+		structureddata['heHitsReceived'] = structureddata['explosionHitsReceived']
+		
+	if 'directHitsReceived' in structureddata:
+		structureddata['shotsReceived'] = structureddata['directHitsReceived']
+		
+	if 'noDamageDirectHitsReceived' in structureddata:
+		structureddata['noDamageShotsReceived'] = structureddata['noDamageDirectHitsReceived']
+		
+
+	return structureddata
+
+
 
 def decode_crits(details_data):
 	"""
@@ -382,7 +430,7 @@ def dumpjson(mydict, filename_source, exitcode):
 		filename_target = os.path.splitext(filename_source)[0]
 		filename_target = filename_target + '.json'
 		
-		if option_chat==0:
+		if option_advanced==0 and option_chat==0 :
 			finalfile = open(filename_target, 'w')
 			finalfile.write(json.dumps(mydict, sort_keys=True, indent=4)) 		
 			finalfile.close()
@@ -487,7 +535,37 @@ def decode_details(data):
         printmessage("Cannot decode details: " + e.message)
     return details
 
+# Thanks to https://github.com/benvanstaveren/wot-replays
+def extract_advanced(fn):
+	advanced = dict()
+	with open(fn, 'rb') as f:
+		f.seek(61)
 
+		playernamelength = struct.unpack("B",f.read(1))[0]
+		advanced['playername'] = f.read(playernamelength)
+		advanced['arenaUniqueID'] = struct.unpack("Q",f.read(8))[0]
+		advanced['battleStartTime'] = advanced['arenaUniqueID'] & 4294967295L
+		advanced['arenaTypeID'] = struct.unpack("I",f.read(4))[0]
+		advanced['bonusType'] = struct.unpack("B",f.read(1))[0]
+		advanced['guiType'] = struct.unpack("B",f.read(1))[0]
+		advanced['more'] = dict()
+		pickletype = struct.unpack("B",f.read(1))[0]
+
+		if pickletype==255:
+			advancedlength = struct.unpack("H",f.read(2))[0]
+			f.read(1)
+		else:
+			advancedlength = struct.unpack("H",f.read(2))[0]
+		
+		try:
+			advanced_pickles = f.read(advancedlength)
+			advanced['more'] = cPickle.loads(advanced_pickles)		
+		except Exception, e:
+			printmessage('cannot load pickle: ' + e.message)
+			
+	return advanced
+			
+	
 # Thanks to https://github.com/marklr/wotanalysis
 def extract_chats(fn):
 	chat = dict()
