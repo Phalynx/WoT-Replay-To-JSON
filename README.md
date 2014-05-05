@@ -1,5 +1,6 @@
-WoT-Replay-To-JSON v9.0.0 
-==============================================================
+WoT-Replay-To-JSON 
+------------------------------------
+Version 9.0.2
 
 * wotrp2j.py
 * Author: Marius Czyz aka Phalynx
@@ -22,9 +23,12 @@ WoT-Replay-To-JSON v9.0.0
 * wotrp2j.pyc <replay.wotreplay> -c
 		Console mode, suppress all messages and print parsed replay to the console window
 
+* wotrp2j.pyc <replay.wotreplay> -a
+		Advanced mode. Tries to read uncompressed part of the replay. Provides access to battleLevel, arenaUniqueID and localized data for Clanwars
+		
 * wotrp2j.pyc <replay.wotreplay> -chat
-		Include chat. Increasing the processing time as the binary part of the replay is decrypted and uncompressed
-
+		Include chat. 
+	
 	Example:
 		python.exe wotrp2j.pyc 20130126_2329_ussr-Object_704_07_lakeville.wotreplay
 
@@ -33,24 +37,32 @@ WoT-Replay-To-JSON v9.0.0
 
 	Without installing Python, you can use wotrp2j.exe instead of wotrp2j.pyc
 
-# Structure:
+### Keep in mind
+By using the advanced mode or chat the processing takes much longer, as the binary part of the replay is decrypted and uncompressed
+
+	
+### Structure:
 * common[status] = "ok" or "error"
 * common[message] = detailed error, otherwise "ok"
 * common[parser] = Version of used script
 * common[datablock_1] = Datablock 1 exists
 * common[datablock_2] = Datablock 2 exists
 * common[datablock_battle_result] = Battle Result exists
+* common[datablock_advanced] = Advanced data exists
+* common[datablock_chat] = Chat exists
 	
 	
-	If the replay can be read, the file will contain additional blocks:
+#### If the replay can be read, the file will contain additional blocks:
 * datablock_1
 * datablock_2 - not always available
 * datablock_battle_result - available only for replays created by WoT 0.8.2 or higher
 	Value of -1 is indicating a corrupt/wrong inserted Battle Result due to a bug in WoT
+* datablock_advanced - available only with the -a option by decompressing the replay
 * chat - Available only with the option -chat
 * identify - Contains data used by vBAddict to identify a replay
 	
 # Credits
+* https://github.com/benvanstaveren/wot-replays
 * https://github.com/marklr/wotanalysis
 * https://github.com/raszpl/wotdecoder
 * Parser for replays of WoT 0.7.2 by Vit@liy and Aborche, http://aborche.com/tst/WoT/parser072.py
