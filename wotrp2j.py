@@ -6,14 +6,14 @@
 # Phalynx www.vbaddict.net      #
 ###############################'#
 
-import cPickle, struct, json, time, sys, os, shutil, datetime, re, codecs
+import struct, json, time, sys, os, shutil, datetime, re, codecs
 
 VEHICLE_DEVICE_TYPE_NAMES = ('engine', 'ammoBay', 'fuelTank', 'radio', 'track', 'gun', 'turretRotator', 'surveyingDevice')
 VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'loader')
 
 def main():
 
-	parserversion = "0.9.0.2"
+	parserversion = "0.9.0.3"
 
 	global option_console, option_advanced, option_chat, option_server, filename_source
 	option_console = 0
@@ -81,9 +81,21 @@ def main():
 		dumpjson(result_blocks, filename_source, 1)
 
 	if numofblocks > 4:
-		result_blocks['common']['message'] = "unknown file structure"
-		dumpjson(result_blocks, filename_source, 1)
+		f.seek(0)
+		firstbytes = struct.unpack("B",f.read(1))[0]
+		if firstbytes==14:
+			result_blocks['common']['message'] = "uncompressed replay"
+			result_blocks['datablock_advanced'] = extract_advanced(filename_source)
+			result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_advanced']['arenaUniqueID']
+			result_blocks['common']['datablock_advanced'] = 1
 
+		if option_chat==1:
+			result_blocks['chat'] = extract_chats(filename_source)
+			result_blocks['common']['datablock_chat'] = 1
+		
+		dumpjson(result_blocks, filename_source, 0)
+
+	
 	
 
 	while numofblocks >= 1:
@@ -125,7 +137,10 @@ def main():
 						result_blocks['datablock_1']['kills'] = br_json_list[2]
 
 				else:
-					br_block = cPickle.loads(myblock)				
+
+
+					from SafeUnpickler import SafeUnpickler
+					br_block = SafeUnpickler.loads(myblock)				
 					
 				if 'vehicles' in br_block:
 					for key, value in br_block['vehicles'].items():
@@ -549,20 +564,62 @@ def extract_advanced(fn):
 		advanced['bonusType'] = struct.unpack("B",f.read(1))[0]
 		advanced['guiType'] = struct.unpack("B",f.read(1))[0]
 		advanced['more'] = dict()
-		pickletype = struct.unpack("B",f.read(1))[0]
+		advancedlength = struct.unpack("B",f.read(1))[0]
 
-		if pickletype==255:
+		if advancedlength==255:
 			advancedlength = struct.unpack("H",f.read(2))[0]
 			f.read(1)
-		else:
-			advancedlength = struct.unpack("H",f.read(2))[0]
-		
+
 		try:
 			advanced_pickles = f.read(advancedlength)
-			advanced['more'] = cPickle.loads(advanced_pickles)		
+			from SafeUnpickler import SafeUnpickler
+			advanced['more'] = SafeUnpickler.loads(advanced_pickles)	
+			
 		except Exception, e:
 			printmessage('cannot load pickle: ' + e.message)
+	
+		f.seek(f.tell()+29)
+		
+		advancedlength = struct.unpack("B",f.read(1))[0]
+
+		if advancedlength==255:
+			advancedlength = struct.unpack("H",f.read(2))[0]
+			f.read(1)
 			
+		#try:
+		rosters = []
+		advanced_pickles = f.read(advancedlength)
+		from SafeUnpickler import SafeUnpickler
+		rosters = SafeUnpickler.loads(advanced_pickles)		
+		rosterdata = dict()
+		for roster in rosters:
+			rosterdata[roster[0]] = dict()
+			rosterdata[roster[0]]['internaluserid'] = roster[0]
+			rosterdata[roster[0]]['playerName'] = roster[2]
+			rosterdata[roster[0]]['team'] = roster[3]
+			rosterdata[roster[0]]['playerID'] = roster[7]
+			rosterdata[roster[0]]['clanAbbrev'] = roster[8]
+			rosterdata[roster[0]]['clanID'] = roster[9]
+			rosterdata[roster[0]]['prebattleID'] = roster[10]
+			
+			binstruct = '<BBHHHHHH'
+			bindata = struct.unpack(binstruct, roster[1][:14])
+			rosterdata[roster[0]]['countryID'] = bindata[0] >> 4 & 15
+			rosterdata[roster[0]]['tankID'] = bindata[1]
+			compDescr = (bindata[1] << 8) + bindata[0]
+			rosterdata[roster[0]]['compDescr'] = compDescr
+			
+			# Does not make sense, will check later
+			#rosterdata[roster[0]]['vehicle'] = dict()
+			#rosterdata[roster[0]]['vehicle']['chassisID'] = bindata[2]
+			#rosterdata[roster[0]]['vehicle']['engineID'] = bindata[3]
+			#rosterdata[roster[0]]['vehicle']['fueltankID'] = bindata[4]
+			#rosterdata[roster[0]]['vehicle']['radioID'] = bindata[5]
+			#rosterdata[roster[0]]['vehicle']['turretID'] = bindata[6]
+			#rosterdata[roster[0]]['vehicle']['gunID'] = bindata[7]
+			
+		advanced['roster'] = rosterdata
+
 	return advanced
 			
 	
