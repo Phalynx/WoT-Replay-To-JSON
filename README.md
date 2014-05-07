@@ -8,6 +8,7 @@ Version 9.0.4
 * Website: http://www.vbaddict.net
 * Wiki: http://wiki.vbaddict.net
 * Repo: https://github.com/Phalynx/WoT-Replay-To-JSON
+* Binaries: http://www.vbaddict.net/content/53-WoT-Replay-JSON
 
 # Supported Versions
 * WoT 0.7.x and higher. 
