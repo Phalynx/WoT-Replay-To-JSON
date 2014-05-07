@@ -13,7 +13,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-	parserversion = "0.9.0.3"
+	parserversion = "0.9.0.4"
 
 	global option_console, option_advanced, option_chat, option_server, filename_source
 	option_console = 0
@@ -519,7 +519,7 @@ def dumpjson(mydict, filename_source, exitcode):
 		print json.dumps(mydict, sort_keys=True, indent=4)
 
 	deleteFile(filename_source + ".tmp")
-	deleteFile(filename_source + ".out")
+	deleteFile(filename_source + ".tmp.out")
 	
 		
 	sys.exit(exitcode)
