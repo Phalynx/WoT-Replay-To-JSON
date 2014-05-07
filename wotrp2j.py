@@ -80,18 +80,50 @@ def main():
 		result_blocks['common']['message'] = "unknown file structure"
 		dumpjson(result_blocks, filename_source, 1)
 
-	if numofblocks > 4:
-		f.seek(0)
-		firstbytes = struct.unpack("B",f.read(1))[0]
-		if firstbytes==14:
-			result_blocks['common']['message'] = "uncompressed replay"
-			result_blocks['datablock_advanced'] = extract_advanced(filename_source)
+	if numofblocks > 5:
+
+		result_blocks['common']['message'] = "uncompressed replay"
+		result_blocks['datablock_advanced'] = extract_advanced(filename_source)
+			
+		if result_blocks['datablock_advanced']['valid'] == 1:
+			
+			if result_blocks['datablock_advanced']['playername'] in result_blocks['datablock_advanced']['roster']:
+				rosterdata = dict()			
+				rosterdata = result_blocks['datablock_advanced']['roster'][result_blocks['datablock_advanced']['playername']]
+				result_blocks['identify']['accountDBID'] = rosterdata['accountDBID'] 
+				result_blocks['identify']['countryid'] = rosterdata['countryID']
+				result_blocks['identify']['internaluserID'] = rosterdata['internaluserID']
+				result_blocks['identify']['tankid'] = rosterdata['tankID']
+			
 			result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_advanced']['arenaUniqueID']
+			result_blocks['identify']['arenaCreateTime'] = result_blocks['datablock_advanced']['arenaCreateTime']
+			
+			mapsdata = get_json_data("maps.json")
+			mapname='unknown'
+			for mapdata in mapsdata:
+				if mapdata['mapid'] == result_blocks['datablock_advanced']['arenaTypeID']:
+						mapname = mapdata['mapidname']
+						break
+
+			result_blocks['identify']['mapName'] = mapname
+			
+			
+			result_blocks['identify']['mapid'] = result_blocks['datablock_advanced']['arenaTypeID']
+			result_blocks['identify']['playername'] = result_blocks['datablock_advanced']['playername']
+			result_blocks['identify']['replay_version'] = result_blocks['datablock_advanced']['replay_version']
+			
+			result_blocks['identify']['error'] = "none"
+			result_blocks['identify']['error_details'] = "none"
+			
 			result_blocks['common']['datablock_advanced'] = 1
 
-		if option_chat==1:
-			result_blocks['chat'] = extract_chats(filename_source)
-			result_blocks['common']['datablock_chat'] = 1
+			if option_chat==1:
+				result_blocks['chat'] = extract_chats(filename_source)
+				result_blocks['common']['datablock_chat'] = 1
+		else:
+			result_blocks['common']['message'] = "replay incompatible"
+			dumpjson(result_blocks, filename_source, 1)
+		
 		
 		dumpjson(result_blocks, filename_source, 0)
 
@@ -100,7 +132,7 @@ def main():
 
 	while numofblocks >= 1:
 		try:
-			printmessage("Getting Block " + str(blockNum))
+			printmessage("Retrieving data for block " + str(blockNum))
 			f.seek(startPointer)
 			size = f.read(4)
 			datablockSize[blockNum] = struct.unpack("I", size)[0]
@@ -112,21 +144,26 @@ def main():
 			result_blocks['common']['message'] = e.message
 			dumpjson(result_blocks, filename_source, 1)
 		
-
+	processing_block = 0
+	
 	for i in datablockSize:
 		
+		processing_block += 1
+		
 		try:
+			printmessage("Retrieving block " + str(processing_block))
 			f.seek(datablockPointer[i])
 								
 			myblock = f.read(int(datablockSize[i]))
 
-			js = json.loads(myblock)
 
 			if 'arenaUniqueID' in myblock:
 
-				#print type(replay_version_dict), replay_version_dict
 				if (int(replay_version_dict[1]) == 8 and int(replay_version_dict[2]) > 10) or int(replay_version_dict[1]) > 8 or myblock[0]=='[':
-					br_json_list = json.loads(myblock)
+					try:
+						br_json_list = json.loads(myblock)
+					except Exception, e:
+						printmessage("Error with JSON: " + e.message)
 					
 					br_block = br_json_list[0]
 
@@ -138,9 +175,11 @@ def main():
 
 				else:
 
-
-					from SafeUnpickler import SafeUnpickler
-					br_block = SafeUnpickler.loads(myblock)				
+					try:
+						from SafeUnpickler import SafeUnpickler
+						br_block = SafeUnpickler.loads(myblock)				
+					except Exception, e:
+						printmessage("Error with unpickling myblock: " + e.message)
 					
 				if 'vehicles' in br_block:
 					for key, value in br_block['vehicles'].items():
@@ -175,7 +214,11 @@ def main():
 					
 			else:
 				blockdict = dict()
-				blockdict = json.loads(myblock)
+				try:
+					blockdict = json.loads(myblock)
+				except Exception, e:
+					printmessage("Error with JSON: " + e.message)
+				
 				
 				if 'clientVersionFromExe' in blockdict:
 					replay_version = cleanReplayVersion(blockdict['clientVersionFromExe'])
@@ -200,16 +243,20 @@ def main():
 		decfile = decrypt_file(filename_source, startPointer)
 		uncompressed = decompress_file(decfile)
 		if option_advanced==1:
-			result_blocks['datablock_advanced'] = extract_advanced(uncompressed)
-			result_blocks['common']['datablock_advanced'] = 1
+			
+			with open(uncompressed, 'rb') as f:
+				if is_supported_replay(f):
+					result_blocks['datablock_advanced'] = extract_advanced(uncompressed)
+					result_blocks['common']['datablock_advanced'] = 1
+				else:
+					result_blocks['common']['datablock_advanced'] = 0
+					result_blocks['common']['message'] = "Unsupported binary replay"
+					dumpjson(result_blocks, filename_source, 0)
 
 		if option_chat==1:
 			result_blocks['chat'] = extract_chats(uncompressed)
 			result_blocks['common']['datablock_chat'] = 1
-			
-		os.unlink(decfile)
-		os.unlink(uncompressed)
-	
+
 		
 	dumpjson(result_blocks, filename_source, 0)
 
@@ -471,9 +518,20 @@ def dumpjson(mydict, filename_source, exitcode):
 	else:
 		print json.dumps(mydict, sort_keys=True, indent=4)
 
+	deleteFile(filename_source + ".tmp")
+	deleteFile(filename_source + ".out")
+	
+		
 	sys.exit(exitcode)
 
+def deleteFile(filename):
+	if os.path.exists(filename):
+		try:
+			os.unlink(filename)
+		except Exception, e:
+			printmessage("Cannot delete file " + filename + ": " + e.message)
 
+	
 def get_current_working_path():
 	#workaround for py2exe
 	import sys, os
@@ -549,20 +607,59 @@ def decode_details(data):
     except Exception, e:
         printmessage("Cannot decode details: " + e.message)
     return details
+	
+def encodeUtf8(string):
+	import types
+	from encodings import utf_8
+	
+	if isinstance(string, types.UnicodeType):
+		return string.encode('utf-8', 'ignore')
+	return string
+	
+	
+def is_supported_replay(f):
+	f.seek(12)
+	versionlength = struct.unpack("B",f.read(1))[0]
 
+	if not versionlength in (10, 11):
+		return False
+		
+	return True
+	
 # Thanks to https://github.com/benvanstaveren/wot-replays
 def extract_advanced(fn):
 	advanced = dict()
 	with open(fn, 'rb') as f:
-		f.seek(61)
 
+		f.seek(12)
+		versionlength = struct.unpack("B",f.read(1))[0]
+	
+		if not is_supported_replay(f):
+			advanced['valid'] = 0
+			printmessage('Unsupported replay: Versionlength: ' + str(versionlength))
+			return advanced
+
+		f.read(3)
+	
+		advanced['replay_version'] = f.read(versionlength)
+		advanced['replay_version'] = advanced['replay_version'].replace(', ', '.').strip()
+		advanced['replay_version'] = advanced['replay_version'].replace('. ', '.').strip()
+
+		f.seek(51 + versionlength)	
 		playernamelength = struct.unpack("B",f.read(1))[0]
+
 		advanced['playername'] = f.read(playernamelength)
 		advanced['arenaUniqueID'] = struct.unpack("Q",f.read(8))[0]
-		advanced['battleStartTime'] = advanced['arenaUniqueID'] & 4294967295L
+		advanced['arenaCreateTime'] = advanced['arenaUniqueID'] & 4294967295L
+		
 		advanced['arenaTypeID'] = struct.unpack("I",f.read(4))[0]
+		advanced['gameplayID'] = advanced['arenaTypeID'] >> 16
+		advanced['arenaTypeID'] = advanced['arenaTypeID'] & 32767
+		
 		advanced['bonusType'] = struct.unpack("B",f.read(1))[0]
 		advanced['guiType'] = struct.unpack("B",f.read(1))[0]
+	
+		
 		advanced['more'] = dict()
 		advancedlength = struct.unpack("B",f.read(1))[0]
 
@@ -574,9 +671,10 @@ def extract_advanced(fn):
 			advanced_pickles = f.read(advancedlength)
 			from SafeUnpickler import SafeUnpickler
 			advanced['more'] = SafeUnpickler.loads(advanced_pickles)	
-			
 		except Exception, e:
-			printmessage('cannot load pickle: ' + e.message)
+			printmessage('cannot load advanced pickle: ' + e.message)
+			printmessage('Position: ' + str(f.tell()) + ", Length: " + str(advancedlength))
+
 	
 		f.seek(f.tell()+29)
 		
@@ -588,26 +686,31 @@ def extract_advanced(fn):
 			
 		#try:
 		rosters = []
-		advanced_pickles = f.read(advancedlength)
-		from SafeUnpickler import SafeUnpickler
-		rosters = SafeUnpickler.loads(advanced_pickles)		
+		try:
+			advanced_pickles = f.read(advancedlength)
+			from SafeUnpickler import SafeUnpickler
+			rosters = SafeUnpickler.loads(advanced_pickles)		
+		except Exception, e:
+			printmessage('cannot load roster pickle: ' + e.message)
+			printmessage('Position: ' + str(f.tell()) + ", Length: " + str(advancedlength))
+		
 		rosterdata = dict()
 		for roster in rosters:
-			rosterdata[roster[0]] = dict()
-			rosterdata[roster[0]]['internaluserid'] = roster[0]
-			rosterdata[roster[0]]['playerName'] = roster[2]
-			rosterdata[roster[0]]['team'] = roster[3]
-			rosterdata[roster[0]]['playerID'] = roster[7]
-			rosterdata[roster[0]]['clanAbbrev'] = roster[8]
-			rosterdata[roster[0]]['clanID'] = roster[9]
-			rosterdata[roster[0]]['prebattleID'] = roster[10]
+			rosterdata[roster[2]] = dict()
+			rosterdata[roster[2]]['internaluserID'] = roster[0]
+			rosterdata[roster[2]]['playerName'] = roster[2]
+			rosterdata[roster[2]]['team'] = roster[3]
+			rosterdata[roster[2]]['accountDBID'] = roster[7]
+			rosterdata[roster[2]]['clanAbbrev'] = roster[8]
+			rosterdata[roster[2]]['clanID'] = roster[9]
+			rosterdata[roster[2]]['prebattleID'] = roster[10]
 			
 			binstruct = '<BBHHHHHH'
 			bindata = struct.unpack(binstruct, roster[1][:14])
-			rosterdata[roster[0]]['countryID'] = bindata[0] >> 4 & 15
-			rosterdata[roster[0]]['tankID'] = bindata[1]
+			rosterdata[roster[2]]['countryID'] = bindata[0] >> 4 & 15
+			rosterdata[roster[2]]['tankID'] = bindata[1]
 			compDescr = (bindata[1] << 8) + bindata[0]
-			rosterdata[roster[0]]['compDescr'] = compDescr
+			rosterdata[roster[2]]['compDescr'] = compDescr
 			
 			# Does not make sense, will check later
 			#rosterdata[roster[0]]['vehicle'] = dict()
@@ -619,7 +722,8 @@ def extract_advanced(fn):
 			#rosterdata[roster[0]]['vehicle']['gunID'] = bindata[7]
 			
 		advanced['roster'] = rosterdata
-
+	
+	advanced['valid'] = 1
 	return advanced
 			
 	
@@ -683,7 +787,7 @@ def decompress_file(fn):
 	    with open(fn + '.out', 'wb') as o:
 	        o.write(zlib.decompress(i.read()))
 	        return fn + ".out"
-	    os.unlink(fn)
+	    deleteFile(fn)
 
 
 
