@@ -13,7 +13,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-	parserversion = "0.9.0.5"
+	parserversion = "0.9.0.6"
 
 	global option_console, option_advanced, option_chat, option_server, filename_source
 	option_console = 0
@@ -87,6 +87,8 @@ def main():
 			
 		if result_blocks['datablock_advanced']['valid'] == 1:
 			
+			result_blocks['identify']['accountDBID'] = 0
+			result_blocks['identify']['internaluserID'] = 0
 			if result_blocks['datablock_advanced']['playername'] in result_blocks['datablock_advanced']['roster']:
 				rosterdata = dict()			
 				rosterdata = result_blocks['datablock_advanced']['roster'][result_blocks['datablock_advanced']['playername']]
@@ -94,6 +96,7 @@ def main():
 				result_blocks['identify']['countryid'] = rosterdata['countryID']
 				result_blocks['identify']['internaluserID'] = rosterdata['internaluserID']
 				result_blocks['identify']['tankid'] = rosterdata['tankID']
+		
 			
 			result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_advanced']['arenaUniqueID']
 			result_blocks['identify']['arenaCreateTime'] = result_blocks['datablock_advanced']['arenaCreateTime']
@@ -160,6 +163,7 @@ def main():
 			if 'arenaUniqueID' in myblock:
 
 				if (int(replay_version_dict[1]) == 8 and int(replay_version_dict[2]) > 10) or int(replay_version_dict[1]) > 8 or myblock[0]=='[':
+					br_json_list = dict()
 					try:
 						br_json_list = json.loads(myblock)
 					except Exception, e:
@@ -646,6 +650,7 @@ def extract_advanced(fn):
 		advanced['replay_version'] = f.read(versionlength)
 		advanced['replay_version'] = advanced['replay_version'].replace(', ', '.').strip()
 		advanced['replay_version'] = advanced['replay_version'].replace('. ', '.').strip()
+		advanced['replay_version'] = advanced['replay_version'].replace(' ', '.').strip()
 
 		f.seek(51 + versionlength)	
 		playernamelength = struct.unpack("B",f.read(1))[0]
@@ -707,22 +712,22 @@ def extract_advanced(fn):
 			rosterdata[roster[2]]['clanID'] = roster[9]
 			rosterdata[roster[2]]['prebattleID'] = roster[10]
 			
-			binstruct = '<BBHHHHHH'
-			bindata = struct.unpack(binstruct, roster[1][:14])
+			bindata = struct.unpack('<BBHHHHHH', roster[1][:14])
 			rosterdata[roster[2]]['countryID'] = bindata[0] >> 4 & 15
 			rosterdata[roster[2]]['tankID'] = bindata[1]
 			compDescr = (bindata[1] << 8) + bindata[0]
 			rosterdata[roster[2]]['compDescr'] = compDescr
 			
 			# Does not make sense, will check later
-			#rosterdata[roster[0]]['vehicle'] = dict()
-			#rosterdata[roster[0]]['vehicle']['chassisID'] = bindata[2]
-			#rosterdata[roster[0]]['vehicle']['engineID'] = bindata[3]
-			#rosterdata[roster[0]]['vehicle']['fueltankID'] = bindata[4]
-			#rosterdata[roster[0]]['vehicle']['radioID'] = bindata[5]
-			#rosterdata[roster[0]]['vehicle']['turretID'] = bindata[6]
-			#rosterdata[roster[0]]['vehicle']['gunID'] = bindata[7]
-			
+			# rosterdata[roster[2]]['vehicle'] = dict()
+			# rosterdata[roster[2]]['vehicle']['chassisID'] = bindata[2]
+			# rosterdata[roster[2]]['vehicle']['engineID'] = bindata[3]
+			# rosterdata[roster[2]]['vehicle']['fueltankID'] = bindata[4]
+			# rosterdata[roster[2]]['vehicle']['radioID'] = bindata[5]
+			# rosterdata[roster[2]]['vehicle']['turretID'] = bindata[6]
+			# rosterdata[roster[2]]['vehicle']['gunID'] = bindata[7]
+
+					
 		advanced['roster'] = rosterdata
 	
 	advanced['valid'] = 1
