@@ -1,6 +1,6 @@
 WoT-Replay-To-JSON 
 ------------------------------------
-Version 9.0.5
+Version 9.0.7
 
 * wotrp2j.py
 * Author: Marius Czyz aka Phalynx
@@ -10,14 +10,17 @@ Version 9.0.5
 * Repo: https://github.com/Phalynx/WoT-Replay-To-JSON
 * Binaries: http://www.vbaddict.net/content/53-WoT-Replay-JSON
 
-# Supported Versions
-* WoT 0.7.x and higher. 
-* Latest tested version: WoT 0.9.0.
+## Respect for my work
+Please respect my work invested in this project. You have to give me credit on your application or website.
 
-# Python
+## Supported Versions
+* WoT 0.7.x and higher. 
+* Latest tested version: WoT 0.9.1.
+
+## Python
 * You need Python 2.7, or just use the compiled version wotrp2j.exe
 
-# Usage
+## Usage
 * wotrp2j.pyc <replay.wotreplay>
 		creates a text file with the name of the replay where the extension has been replaced by ".json"
 	
