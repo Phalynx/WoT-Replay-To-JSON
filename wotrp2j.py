@@ -13,7 +13,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-	parserversion = "0.9.0.7"
+	parserversion = "0.9.0.8"
 
 	global option_console, option_advanced, option_chat, option_server, filename_source
 	option_console = 0
@@ -718,8 +718,9 @@ def extract_advanced(fn):
 			compDescr = (bindata[1] << 8) + bindata[0]
 			rosterdata[roster[2]]['compDescr'] = compDescr
 			
+			rosterdata[roster[2]]['vehicle'] = dict()
+			
 			# Does not make sense, will check later
-			# rosterdata[roster[2]]['vehicle'] = dict()
 			# rosterdata[roster[2]]['vehicle']['chassisID'] = bindata[2]
 			# rosterdata[roster[2]]['vehicle']['engineID'] = bindata[3]
 			# rosterdata[roster[2]]['vehicle']['fueltankID'] = bindata[4]
@@ -727,7 +728,33 @@ def extract_advanced(fn):
 			# rosterdata[roster[2]]['vehicle']['turretID'] = bindata[6]
 			# rosterdata[roster[2]]['vehicle']['gunID'] = bindata[7]
 
-					
+			
+			# Thanks to Rembel
+			flags = struct.unpack('B', roster[1][14])[0]
+			
+			optional_devices_mask = flags & 15
+
+			idx = 2
+
+			pos = 15
+			
+		
+			while optional_devices_mask:
+				if optional_devices_mask & 1:
+					try:
+						if len(roster[1]) >= pos+2:
+							m = struct.unpack('H', roster[1][pos:pos+2])[0]
+							rosterdata[roster[2]]['vehicle']['module_' + str(idx)] = m
+					except Exception, e:
+						printmessage('error on processing player [' + str(roster[2]) + ']: '  + e.message)
+				else:
+					rosterdata[roster[2]]['vehicle']['module_' + str(idx)] = -1
+				
+				optional_devices_mask = optional_devices_mask >> 1
+				idx = idx - 1
+				pos = pos + 2
+	
+			
 		advanced['roster'] = rosterdata
 	
 	advanced['valid'] = 1
