@@ -6,14 +6,14 @@
 # Phalynx www.vbaddict.net      #
 ###############################'#
 
-import struct, json, time, sys, os, shutil, datetime, re, codecs
+import struct, json, time, sys, os, shutil, datetime, re, codecs, mmap
 
 VEHICLE_DEVICE_TYPE_NAMES = ('engine', 'ammoBay', 'fuelTank', 'radio', 'track', 'gun', 'turretRotator', 'surveyingDevice')
 VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'loader')
 
 def main():
 
-	parserversion = "0.9.0.8"
+	parserversion = "0.9.2.0"
 
 	global option_console, option_advanced, option_chat, option_server, filename_source
 	option_console = 0
@@ -791,24 +791,25 @@ def decrypt_file(fn, offset=0):
 	printmessage("Decrypting from offset {}".format(offset))
 	of = fn + ".tmp"
 	with open(fn, 'rb') as f:
-	    f.seek(offset)
-	    with open(of, 'wb') as out:
-	        while True:
-	            b = f.read(8)
-	            if not b:
-	                break
+
+		f.seek(offset)
+		with open(of, 'wb') as out:
+			while True:
+				b = f.read(8)
+				if not b:
+					break
 	
-	            if len(b) < 8:
-	                b += '\x00' * (8 - len(b))  # pad for correct blocksize
+				if len(b) < 8:
+					b += '\x00' * (8 - len(b))  # pad for correct blocksize
 	
-	            if bc > 0:
-	                db = bf.decrypt(b)
-	                if pb:
-	                    db = ''.join([chr(int(b2a_hex(a), 16) ^ int(b2a_hex(b), 16)) for a, b in zip(db, pb)])
+				if bc > 0:
+					db = bf.decrypt(b)
+					if pb:
+						db = ''.join([chr(int(b2a_hex(a), 16) ^ int(b2a_hex(b), 16)) for a, b in zip(db, pb)])
 	
-	                pb = db
-	                out.write(db)
-	            bc += 1
+					pb = db
+					out.write(db)
+				bc += 1
 	        return of
 	return None
 
@@ -1329,7 +1330,19 @@ def listAchievements():
 	achievements[492] = 'histBattle5_historyLessons'
 	achievements[493] = 'histBattle6_battlefield'
 	achievements[494] = 'histBattle6_historyLessons'
-
+	achievements[495] = 'guerrilla'
+	achievements[496] = 'guerrillaMedal'
+	achievements[497] = 'infiltrator'
+	achievements[498] = 'infiltratorMedal'
+	achievements[499] = 'sentinel'
+	achievements[500] = 'sentinelMedal'
+	achievements[501] = 'prematureDetonation'
+	achievements[502] = 'prematureDetonationMedal'
+	achievements[503] = 'bruteForce'
+	achievements[504] = 'bruteForceMedal'
+	achievements[505] = 'awardCount'
+	achievements[506] = 'battleTested'
+	achievements[507] = 'medalRotmistrov'
 
 	return achievements
 
