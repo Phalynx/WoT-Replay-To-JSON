@@ -17,7 +17,14 @@ Please respect my work invested in this project. You have to give me credit on y
 * WoT 0.7.x and higher. 
 * Latest tested version: WoT 0.9.1.
 
-## Python
+## Requirements
+
+### Tank and Map definitions
+For parsing of the most current Tanks and Maps you will need tanks.jsonand maps.json from my WoT-Dossier-Cache-to-JSON repository
+* tanks.json https://github.com/Phalynx/WoT-Dossier-Cache-to-JSON/blob/master/tanks.json
+* maps.json https://github.com/Phalynx/WoT-Dossier-Cache-to-JSON/blob/master/maps.json
+
+### Python
 * You need Python 2.7, or just use the compiled version wotrp2j.exe
 
 ## Usage
