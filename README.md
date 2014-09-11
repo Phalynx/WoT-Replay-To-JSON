@@ -1,6 +1,6 @@
 WoT-Replay-To-JSON 
 ------------------------------------
-Version 9.2
+Version 9.3
 
 * wotrp2j.py
 * Author: Marius Czyz aka Phalynx
@@ -15,7 +15,7 @@ Please respect my work invested in this project. You have to give me credit on y
 
 ## Supported Versions
 * WoT 0.7.x and higher. 
-* Latest tested version: WoT 0.9.1.
+* Latest tested version: WoT 0.9.3.
 
 ## Requirements
 
