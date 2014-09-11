@@ -6,14 +6,14 @@
 # Phalynx www.vbaddict.net      #
 ###############################'#
 
-import struct, json, time, sys, os, shutil, datetime, re, codecs, mmap
+import struct, json, time, sys, os, shutil, datetime, re, codecs
 
 VEHICLE_DEVICE_TYPE_NAMES = ('engine', 'ammoBay', 'fuelTank', 'radio', 'track', 'gun', 'turretRotator', 'surveyingDevice')
 VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'loader')
 
 def main():
 
-	parserversion = "0.9.2.0"
+	parserversion = "0.9.3.0"
 
 	global option_console, option_advanced, option_chat, option_server, filename_source
 	option_console = 0
@@ -1321,8 +1321,8 @@ def listAchievements():
 	achievements[483] = 'fireAndSword'
 	achievements[484] = 'crusher'
 	achievements[485] = 'counterblow'
-	achievements[486] = 'soldierOfFortune'
-	achievements[487] = 'kampfer'
+	achievements[486] = 'kampfer'
+	achievements[487] = 'soldierOfFortune'
 	achievements[488] = 'WFC2014WinSeries'
 	achievements[489] = 'maxWFC2014WinSeries'
 	achievements[490] = 'WFC2014'
@@ -1343,6 +1343,34 @@ def listAchievements():
 	achievements[505] = 'awardCount'
 	achievements[506] = 'battleTested'
 	achievements[507] = 'medalRotmistrov'
+	achievements[508] = 'combatCount'
+	achievements[509] = 'combatWins'
+	achievements[510] = 'successDefenceCount'
+	achievements[511] = 'successAttackCount'
+	achievements[512] = 'captureEnemyBuildingTotalCount'
+	achievements[513] = 'lossOwnBuildingTotalCount'
+	achievements[514] = 'resourceCaptureCount'
+	achievements[515] = 'resourceLossCount'
+	achievements[516] = 'reservedInt32'
+	achievements[517] = 'impenetrable'
+	achievements[518] = 'reliableComradeSeries'
+	achievements[519] = 'reliableComrade'
+	achievements[520] = 'maxAimerSeries'
+	achievements[521] = 'shootToKill'
+	achievements[522] = 'fighter'
+	achievements[523] = 'duelist'
+	achievements[524] = 'demolition'
+	achievements[525] = 'arsonist'
+	achievements[526] = 'bonecrusher'
+	achievements[527] = 'charmed'
+	achievements[528] = 'even'
+	achievements[529] = 'reservedInAccountSingleAchievements'
+	achievements[530] = 'wins'
+	achievements[531] = 'capturedBasesInAttack'
+	achievements[532] = 'capturedBasesInDefence'
+	achievements[533] = 'deathTrack'
+	achievements[534] = 'deathTrackWinSeries'
+	achievements[535] = 'maxDeathTrackWinSeries'
 
 	return achievements
 
