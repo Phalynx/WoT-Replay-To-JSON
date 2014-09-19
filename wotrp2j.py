@@ -260,7 +260,9 @@ def main():
 					dumpjson(result_blocks, filename_source, 0)
 
 		if option_chat==1:
-			result_blocks['chat'] = extract_chats(uncompressed)
+			import legacy
+			result_blocks['chat_timestamp'] = legacy.Data(open(uncompressed, 'rb')).data[legacy.KEY.CHAT]
+			result_blocks['chat'] = "<br/>".join([msg.encode("string-escape") for msg, timestamp in result_blocks['chat_timestamp']])
 			result_blocks['common']['datablock_chat'] = 1
 
 		
