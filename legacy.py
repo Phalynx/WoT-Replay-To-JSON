@@ -1,3 +1,9 @@
+# parser for "unpacked" wotreplay files
+# (C) 2014 by Vitaly Bogomolov mail@vitaly-bogomolov.ru
+# based on:
+# https://github.com/Phalynx/WoT-Replay-To-JSON
+# https://github.com/evido/wotreplay-parser
+
 import struct
 
 # source: https://github.com/evido/wotreplay-parser
