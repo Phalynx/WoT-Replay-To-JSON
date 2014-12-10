@@ -178,7 +178,9 @@ def pkt_credential(self, buff, clock):
     dat[KEY.BONUS_TYPE] = bonusType
     dat[KEY.GUI_TYPE] = guiType
     dat[KEY.GAMEPLAY] = arenaTypeID >> 16
-    dat[KEY.BATTLE_LEVEL] = ext_data['battleLevel']
+    dat[KEY.BATTLE_LEVEL] = 0
+    if 'battleLevel' in ext_data:
+        dat[KEY.BATTLE_LEVEL] = ext_data['battleLevel']
 
     self.data[KEY.HEADER] = dat
 
