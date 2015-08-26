@@ -13,7 +13,7 @@ VEHICLE_TANKMAN_TYPE_NAMES = ('commander', 'driver', 'radioman', 'gunner', 'load
 
 def main():
 
-	parserversion = "0.9.3.0"
+	parserversion = "0.9.8.0"
 
 	global option_console, option_advanced, option_chat, option_server, filename_source
 	option_console = 0
@@ -53,10 +53,10 @@ def main():
 	
 	result_blocks = dict()
 	result_blocks['common'] = dict()
+	result_blocks['common']['parser'] = "WoT-Replay-To-JSON " + parserversion + " by http://www.vbaddict.net"
+
 	result_blocks['identify'] = dict()
 	result_blocks['identify']['arenaUniqueID'] = 0
-	
-	result_blocks['common']['parser'] = "WoT-Replay-To-JSON " + parserversion + " by http://www.vbaddict.net"
 	
 	if not os.path.exists(filename_source) or not os.path.isfile(filename_source) or not os.access(filename_source, os.R_OK):
 		result_blocks['common']['message'] = 'cannot read file ' + filename_source
@@ -117,7 +117,7 @@ def main():
 			
 			result_blocks['identify']['error'] = "none"
 			result_blocks['identify']['error_details'] = "none"
-			
+
 			result_blocks['common']['datablock_advanced'] = 1
 
 			if option_chat==1:
@@ -154,96 +154,98 @@ def main():
 		processing_block += 1
 		
 		try:
-			printmessage("Retrieving block " + str(processing_block))
-			f.seek(datablockPointer[i])
-								
-			myblock = f.read(int(datablockSize[i]))
+			pass
+		except Exception, e:
+			result_blocks['common']['message'] = e.message
+			dumpjson(result_blocks, filename_source, 1)
+			
+		printmessage("Retrieving block " + str(processing_block))
+		f.seek(datablockPointer[i])
+							
+		myblock = f.read(int(datablockSize[i]))
 
+		if 'arenaUniqueID' in myblock:
 
-			if 'arenaUniqueID' in myblock:
+			if version_check(replay_version, "0.8.11.0") > -1 or myblock[0]=='[':
+				br_json_list = dict()
+		
+				try:
+					br_json_list = json.loads(myblock)
+				except Exception, e:
+					printmessage("Error with JSON: " + e.message)
+				
+				if len(br_json_list)==0:
+					continue
 
-				if (int(replay_version_dict[1]) == 8 and int(replay_version_dict[2]) > 10) or int(replay_version_dict[1]) > 8 or myblock[0]=='[':
-					br_json_list = dict()
-					try:
-						br_json_list = json.loads(myblock)
-					except Exception, e:
-						printmessage("Error with JSON: " + e.message)
+				br_block = br_json_list[0]
+				br_block['parser'] = dict()
+				br_block['parser']['battleResultVersion'] = 14
+
+				if version_check(replay_version, "0.9.8.0") > -1:
+					br_block['parser'] = dict()
+					br_block['parser']['battleResultVersion'] = 15
+					if 'personal' in br_block:
+						for vehTypeCompDescr, ownResults in br_block['personal'].copy().iteritems():
+							if 'details' in ownResults:
+								ownResults['details'] = decode_details(ownResults['details'])
+								print ownResults['details']
+								br_block['personal'][vehTypeCompDescr] = ownResults
+
 					
-					br_block = br_json_list[0]
-
+				if 'datablock_1' in result_blocks:
 					if len(br_json_list) > 0:
 						result_blocks['datablock_1']['vehicles'] = br_json_list[1]
 
 					if len(br_json_list) > 1:
 						result_blocks['datablock_1']['kills'] = br_json_list[2]
 
-				else:
-
-					try:
-						from SafeUnpickler import SafeUnpickler
-						br_block = SafeUnpickler.loads(myblock)				
-					except Exception, e:
-						printmessage("Error with unpickling myblock: " + e.message)
-					
-				if 'vehicles' in br_block:
-					for key, value in br_block['vehicles'].items():
-						
-						if br_block['vehicles'][key]['typeCompDescr'] > 0:
-							br_block['vehicles'][key]['tankID'] = br_block['vehicles'][key]['typeCompDescr'] >> 8 & 65535
-							br_block['vehicles'][key]['countryID'] = br_block['vehicles'][key]['typeCompDescr'] >> 4 & 15
-						
-						if 'details' in br_block['vehicles'][key]:
-							del br_block['vehicles'][key]['details']
-					
-						
-						#br_block['vehicles'][key]['details'] = decode_details(value['details'])
-						#br_block['vehicles'][key]['details'] = decode_crits(br_block['vehicles'][key]['details'])
-						
-					br_block['personal']['details'] = decode_crits(br_block['personal']['details'])
-					
-					br_block['personal'] = keepCompatibility(br_block['personal'])
-					
-					result_blocks['datablock_battle_result'] = br_block
-					result_blocks['datablock_battle_result']['common']['gameplayID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] >> 16
-					result_blocks['datablock_battle_result']['common']['arenaTypeID'] = result_blocks['datablock_battle_result']['common']['arenaTypeID'] & 32767
-					
-					result_blocks['datablock_battle_result']['personal']['achievements'] = decodeDossierPopups(result_blocks['datablock_battle_result']['personal'])
-				
-					for key, value in result_blocks['datablock_battle_result']['players'].items(): 
-						for vkey, vvalue in result_blocks['datablock_battle_result']['vehicles'].items(): 
-							if result_blocks['datablock_battle_result']['vehicles'][vkey]['accountDBID'] == key: 
-								result_blocks['datablock_battle_result']['players'][key]['vehicleid'] = vkey 
-								break
-
-					result_blocks['common']['datablock_battle_result'] = 1
-					result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_battle_result']['arenaUniqueID']
-					
 			else:
-				blockdict = dict()
+
 				try:
-					blockdict = json.loads(myblock)
+					from SafeUnpickler import SafeUnpickler
+					br_block = SafeUnpickler.loads(myblock)
+					br_block['parser'] = dict()
+					br_block['parser']['battleResultVersion'] = 14
 				except Exception, e:
-					printmessage("Error with JSON: " + e.message)
-				
-				
-				if 'clientVersionFromExe' in blockdict:
-					replay_version = cleanReplayVersion(blockdict['clientVersionFromExe'])
-					result_blocks['common']['replay_version'] = replay_version
-					result_blocks['identify']['replay_version'] = replay_version
-					replay_version_dict = replay_version.split('.')
-					printmessage("Replay Version: " + str(replay_version))
-				
-				result_blocks['datablock_' + str(i)] = blockdict
-				result_blocks['common']['datablock_' + str(i)] = 1
+					printmessage("Error with unpickling myblock: " + e.message)
 
-			result_blocks['common']['message'] = "ok"
+			if int(br_block['parser']['battleResultVersion']) < 15:
+				if 'personal' in br_block:
+					br_block['personal']['details'] = decode_details(br_block['personal']['details'])
+					if 'vehicles' in br_block:
+						for key, value in br_block['vehicles'].items():
+							if 'details' in br_block['vehicles'][key]:
+								del br_block['vehicles'][key]['details']
+						
+					
+			result_blocks['datablock_battle_result'] = br_block
 
-		except Exception, e:
-			result_blocks['common']['message'] = e.message
-			dumpjson(result_blocks, filename_source, 1)
+			result_blocks['common']['datablock_battle_result'] = 1
+			result_blocks['identify']['arenaUniqueID'] = result_blocks['datablock_battle_result']['arenaUniqueID']
 
+				
+		else:
+			blockdict = dict()
+			try:
+				blockdict = json.loads(myblock)
+			except Exception, e:
+				printmessage("Error with JSON: " + e.message)
+			
+			
+			if 'clientVersionFromExe' in blockdict:
+				replay_version = cleanReplayVersion(blockdict['clientVersionFromExe'])
+				result_blocks['common']['replay_version'] = replay_version
+				result_blocks['identify']['replay_version'] = replay_version
+				replay_version_dict = replay_version.split('.')
+				printmessage("Replay Version: " + str(replay_version))
+			
+			result_blocks['datablock_' + str(i)] = blockdict
+			result_blocks['common']['datablock_' + str(i)] = 1
+
+		result_blocks['common']['message'] = "ok"
+	
 	result_blocks = get_identify(result_blocks)
-
+		
 	if option_advanced==1 or option_chat==1:
 
 		decfile = decrypt_file(filename_source, startPointer)
@@ -265,20 +267,20 @@ def main():
 			result_blocks['chat'] = "<br/>".join([msg.encode("string-escape") for msg, timestamp in result_blocks['chat_timestamp']])
 			result_blocks['common']['datablock_chat'] = 1
 
+			result_blocks['bindata'] = legacy.Data(open(uncompressed, 'rb')).data
+			
+			
 		
 	dumpjson(result_blocks, filename_source, 0)
-
-
-def cleanReplayVersion(replay_version):
-	replay_version = replay_version.replace(', ', '.')
-	replay_version = replay_version.replace(' ', '.')
-	#return replay_version.split('.')[:3]
-	return replay_version
 
 # Create block to identify replay even without arenaUniqueID, needed for vBAddict.net
 def get_identify(result_blocks):
 	
 	internaluserID = 0
+	
+	if not 'datablock_1' in result_blocks:
+		return result_blocks
+	
 	for key, value in result_blocks['datablock_1']['vehicles'].items():
 		
 		if result_blocks['datablock_1']['vehicles'][key]['name'] == result_blocks['datablock_1']['playerName']:
@@ -354,74 +356,24 @@ def get_identify(result_blocks):
 	result_blocks['identify']['error_details'] = 'none'
 
 
-	if not "datablock_battle_result" in result_blocks['common']:
-		return result_blocks
-
-	result_blocks['datablock_battle_result']['personal']['tankid'] = tankid
-	result_blocks['datablock_battle_result']['personal']['countryid'] = countryid
-	result_blocks['datablock_battle_result']['personal']['countryid'] = countryid
-	result_blocks['datablock_battle_result']['personal']['won'] = True if result_blocks['datablock_battle_result']['common']['winnerTeam'] == result_blocks['datablock_battle_result']['personal']['team'] else False
-
-	for key, value in result_blocks['datablock_battle_result']['players'].items(): 
-	    result_blocks['datablock_battle_result']['players'][key]['platoonID'] = result_blocks['datablock_battle_result']['players'][key]['prebattleID'] 
-	    del result_blocks['datablock_battle_result']['players'][key]['prebattleID'] 
-	      
-	    for vkey, vvalue in result_blocks['datablock_battle_result']['vehicles'].items(): 
-	        if result_blocks['datablock_battle_result']['vehicles'][vkey]['accountDBID'] == key: 
-	            result_blocks['datablock_battle_result']['players'][key]['vehicleid'] = vkey 
-	            break
-
-
-	correct_battle_result = 1;
-	
-
-	if result_blocks['identify']['mapid'] != result_blocks['datablock_battle_result']['common']['arenaTypeID']:
-		correct_battle_result = 0
-	
-	typeCompDescr = make_typeCompDescr(result_blocks['identify']['countryid'], result_blocks['identify']['tankid'])
-
-	if typeCompDescr != result_blocks['datablock_battle_result']['personal']['typeCompDescr']:
-		correct_battle_result = 0
-
-
-	if correct_battle_result == 0:
-		printmessage('Incorrect Battle Result')
-		del result_blocks['datablock_battle_result']
-		result_blocks['common']['datablock_battle_result'] = -1
-		result_blocks['identify']['arenaUniqueID'] = 0
-
-
 	return result_blocks
 	
 def make_typeCompDescr(countryid, tankid):
 	countryshift = 1 + (countryid << 4)
 	return (tankid << 8) + countryshift
 	
-def keepCompatibility(structureddata):
-	# Compatibility with older versions
-	# Some names changed in WoT 0.9.0
-		
-	if 'directHits' in structureddata:
-		structureddata['hits'] = structureddata['directHits']
-		
-	if 'explosionHits' in structureddata:
-		structureddata['he_hits'] = structureddata['explosionHits']
-		
-	if 'piercings' in structureddata:
-		structureddata['pierced'] = structureddata['piercings']
-				
-	if 'explosionHitsReceived' in structureddata:
-		structureddata['heHitsReceived'] = structureddata['explosionHitsReceived']
-		
-	if 'directHitsReceived' in structureddata:
-		structureddata['shotsReceived'] = structureddata['directHitsReceived']
-		
-	if 'noDamageDirectHitsReceived' in structureddata:
-		structureddata['noDamageShotsReceived'] = structureddata['noDamageDirectHitsReceived']
-		
 
-	return structureddata
+def version_check(version_check, version_desired):
+	def normalize(v):
+		return [int(x) for x in re.sub(r'(\.0+)*$','', v).split(".")]
+	
+	return cmp(normalize(version_check), normalize(version_desired))
 
+def cleanReplayVersion(replay_version):
+	replay_version = replay_version.replace(', ', '.')
+	replay_version = replay_version.replace(' ', '.')
+	#return replay_version.split('.')[:3]
+	return replay_version
 
 
 def decode_crits(details_data):
@@ -493,7 +445,7 @@ def dumpjson(mydict, filename_source, exitcode):
 	else:
 		mydict['common']['status'] = "error"
 		printmessage("Errors occurred: " + str(mydict['common']['message']))
-		write_to_log("WOTRP2J: " + str(mydict['common']['message']))
+		write_to_log("WOTRP2J: Err on " + str(mydict['common']['message']))
 	
 	
 	if option_console==0:
@@ -501,9 +453,14 @@ def dumpjson(mydict, filename_source, exitcode):
 		filename_target = filename_target + '.json'
 		
 		if option_advanced==0 and option_chat==0 :
-			finalfile = open(filename_target, 'w')
-			finalfile.write(json.dumps(mydict, sort_keys=True, indent=4)) 		
-			finalfile.close()
+			try:
+				finalfile = open(filename_target, 'w')
+				finalfile.write(json.dumps(mydict, sort_keys=True, indent=4)) 		
+				finalfile.close()
+			except Exception, e:
+				print mydict
+				printmessage("Error saving JSON: " + str(e.message))
+				write_to_log("WOTRP2J: Err on " + str(e.message))
 			
 		else:
 			# Patch by kuzyara
@@ -551,7 +508,7 @@ def get_current_working_path():
 			return sys.path[0]
 	except Exception, e:
 		print e.message
-
+		
 def get_json_data(filename):
 	import json, time, sys, os
 
@@ -575,7 +532,6 @@ def get_json_data(filename):
 	file_json.close()
 
 	return file_data
-
 
 def catch_fatal(message):
 	printmessage(message)
@@ -825,558 +781,6 @@ def decompress_file(fn):
 	        o.write(zlib.decompress(i.read()))
 	        return fn + ".out"
 	    deleteFile(fn)
-
-		
-def decodeDossierPopups(personal):
-	personal_achievements = []
-	if not 'dossierPopUps' in personal:
-		return personal_achievements
-		
-	all_achievements = listAchievements()
-		
-	for achievement in personal['dossierPopUps']:
-		user_achievement = all_achievements[achievement[0]], achievement[1]
-		personal_achievements.append(user_achievement)
-
-	return personal_achievements
-
-		
-def listAchievements():
-	achievements = dict()
-	achievements[1] = 'xp'
-	achievements[2] = 'maxXP'
-	achievements[3] = 'battlesCount'
-	achievements[4] = 'wins'
-	achievements[5] = 'losses'
-	achievements[6] = 'survivedBattles'
-	achievements[7] = 'lastBattleTime'
-	achievements[8] = 'battleLifeTime'
-	achievements[9] = 'winAndSurvived'
-	achievements[10] = 'battleHeroes'
-	achievements[11] = 'frags'
-	achievements[12] = 'maxFrags'
-	achievements[13] = 'frags8p'
-	achievements[14] = 'fragsBeast'
-	achievements[15] = 'shots'
-	achievements[16] = 'directHits'
-	achievements[17] = 'spotted'
-	achievements[18] = 'damageDealt'
-	achievements[19] = 'damageReceived'
-	achievements[20] = 'treesCut'
-	achievements[21] = 'capturePoints'
-	achievements[22] = 'droppedCapturePoints'
-	achievements[23] = 'sniperSeries'
-	achievements[24] = 'maxSniperSeries'
-	achievements[25] = 'invincibleSeries'
-	achievements[26] = 'maxInvincibleSeries'
-	achievements[27] = 'diehardSeries'
-	achievements[28] = 'maxDiehardSeries'
-	achievements[29] = 'killingSeries'
-	achievements[30] = 'maxKillingSeries'
-	achievements[31] = 'piercingSeries'
-	achievements[32] = 'maxPiercingSeries'
-	achievements[34] = 'warrior'
-	achievements[35] = 'invader'
-	achievements[36] = 'sniper'
-	achievements[37] = 'defender'
-	achievements[38] = 'steelwall'
-	achievements[39] = 'supporter'
-	achievements[40] = 'scout'
-	achievements[41] = 'medalKay'
-	achievements[42] = 'medalCarius'
-	achievements[43] = 'medalKnispel'
-	achievements[44] = 'medalPoppel'
-	achievements[45] = 'medalAbrams'
-	achievements[46] = 'medalLeClerc'
-	achievements[47] = 'medalLavrinenko'
-	achievements[48] = 'medalEkins'
-	achievements[49] = 'medalWittmann'
-	achievements[50] = 'medalOrlik'
-	achievements[51] = 'medalOskin'
-	achievements[52] = 'medalHalonen'
-	achievements[53] = 'medalBurda'
-	achievements[54] = 'medalBillotte'
-	achievements[55] = 'medalKolobanov'
-	achievements[56] = 'medalFadin'
-	achievements[57] = 'tankExpert'
-	achievements[58] = 'titleSniper'
-	achievements[59] = 'invincible'
-	achievements[60] = 'diehard'
-	achievements[61] = 'raider'
-	achievements[62] = 'handOfDeath'
-	achievements[63] = 'armorPiercer'
-	achievements[64] = 'kamikaze'
-	achievements[65] = 'lumberjack'
-	achievements[66] = 'beasthunter'
-	achievements[67] = 'mousebane'
-	achievements[68] = 'creationTime'
-	achievements[69] = 'maxXPVehicle'
-	achievements[70] = 'maxFragsVehicle'
-	achievements[72] = 'evileye'
-	achievements[73] = 'medalRadleyWalters'
-	achievements[74] = 'medalLafayettePool'
-	achievements[75] = 'medalBrunoPietro'
-	achievements[76] = 'medalTarczay'
-	achievements[77] = 'medalPascucci'
-	achievements[78] = 'medalDumitru'
-	achievements[79] = 'markOfMastery'
-	achievements[80] = 'xp'
-	achievements[81] = 'battlesCount'
-	achievements[82] = 'wins'
-	achievements[83] = 'losses'
-	achievements[84] = 'survivedBattles'
-	achievements[85] = 'frags'
-	achievements[86] = 'shots'
-	achievements[87] = 'directHits'
-	achievements[88] = 'spotted'
-	achievements[89] = 'damageDealt'
-	achievements[90] = 'damageReceived'
-	achievements[91] = 'capturePoints'
-	achievements[92] = 'droppedCapturePoints'
-	achievements[93] = 'xp'
-	achievements[94] = 'battlesCount'
-	achievements[95] = 'wins'
-	achievements[96] = 'losses'
-	achievements[97] = 'survivedBattles'
-	achievements[98] = 'frags'
-	achievements[99] = 'shots'
-	achievements[100] = 'directHits'
-	achievements[101] = 'spotted'
-	achievements[102] = 'damageDealt'
-	achievements[103] = 'damageReceived'
-	achievements[104] = 'capturePoints'
-	achievements[105] = 'droppedCapturePoints'
-	achievements[106] = 'medalLehvaslaiho'
-	achievements[107] = 'medalNikolas'
-	achievements[108] = 'fragsSinai'
-	achievements[109] = 'sinai'
-	achievements[110] = 'heroesOfRassenay'
-	achievements[111] = 'mechanicEngineer'
-	achievements[112] = 'tankExpert0'
-	achievements[113] = 'tankExpert1'
-	achievements[114] = 'tankExpert2'
-	achievements[115] = 'tankExpert3'
-	achievements[116] = 'tankExpert4'
-	achievements[117] = 'tankExpert5'
-	achievements[118] = 'tankExpert6'
-	achievements[119] = 'tankExpert7'
-	achievements[120] = 'tankExpert8'
-	achievements[121] = 'tankExpert9'
-	achievements[122] = 'tankExpert10'
-	achievements[123] = 'tankExpert11'
-	achievements[124] = 'tankExpert12'
-	achievements[125] = 'tankExpert13'
-	achievements[126] = 'tankExpert14'
-	achievements[127] = 'mechanicEngineer0'
-	achievements[128] = 'mechanicEngineer1'
-	achievements[129] = 'mechanicEngineer2'
-	achievements[130] = 'mechanicEngineer3'
-	achievements[131] = 'mechanicEngineer4'
-	achievements[132] = 'mechanicEngineer5'
-	achievements[133] = 'mechanicEngineer6'
-	achievements[134] = 'mechanicEngineer7'
-	achievements[135] = 'mechanicEngineer8'
-	achievements[136] = 'mechanicEngineer9'
-	achievements[137] = 'mechanicEngineer10'
-	achievements[138] = 'mechanicEngineer11'
-	achievements[139] = 'mechanicEngineer12'
-	achievements[140] = 'mechanicEngineer13'
-	achievements[141] = 'mechanicEngineer14'
-	achievements[142] = 'gold'
-	achievements[143] = 'medalBrothersInArms'
-	achievements[144] = 'medalCrucialContribution'
-	achievements[145] = 'medalDeLanglade'
-	achievements[146] = 'medalTamadaYoshio'
-	achievements[147] = 'bombardier'
-	achievements[148] = 'huntsman'
-	achievements[149] = 'alaric'
-	achievements[150] = 'sturdy'
-	achievements[151] = 'ironMan'
-	achievements[152] = 'luckyDevil'
-	achievements[153] = 'fragsPatton'
-	achievements[154] = 'pattonValley'
-	achievements[155] = 'xpBefore8_8'
-	achievements[156] = 'battlesCountBefore8_8'
-	achievements[157] = 'originalXP'
-	achievements[158] = 'damageAssistedTrack'
-	achievements[159] = 'damageAssistedRadio'
-	achievements[160] = 'mileage'
-	achievements[161] = 'directHitsReceived'
-	achievements[162] = 'noDamageDirectHitsReceived'
-	achievements[163] = 'piercingsReceived'
-	achievements[164] = 'explosionHits'
-	achievements[165] = 'piercings'
-	achievements[166] = 'explosionHitsReceived'
-	achievements[167] = 'mechanicEngineerStrg'
-	achievements[168] = 'tankExpertStrg'
-	achievements[169] = 'originalXP'
-	achievements[170] = 'damageAssistedTrack'
-	achievements[171] = 'damageAssistedRadio'
-	achievements[173] = 'directHitsReceived'
-	achievements[174] = 'noDamageDirectHitsReceived'
-	achievements[175] = 'piercingsReceived'
-	achievements[176] = 'explosionHitsReceived'
-	achievements[177] = 'explosionHits'
-	achievements[178] = 'piercings'
-	achievements[179] = 'originalXP'
-	achievements[180] = 'damageAssistedTrack'
-	achievements[181] = 'damageAssistedRadio'
-	achievements[183] = 'directHitsReceived'
-	achievements[184] = 'noDamageDirectHitsReceived'
-	achievements[185] = 'piercingsReceived'
-	achievements[186] = 'explosionHitsReceived'
-	achievements[187] = 'explosionHits'
-	achievements[188] = 'piercings'
-	achievements[189] = 'xp'
-	achievements[190] = 'battlesCount'
-	achievements[191] = 'wins'
-	achievements[192] = 'losses'
-	achievements[193] = 'survivedBattles'
-	achievements[194] = 'frags'
-	achievements[195] = 'shots'
-	achievements[196] = 'directHits'
-	achievements[197] = 'spotted'
-	achievements[198] = 'damageDealt'
-	achievements[199] = 'damageReceived'
-	achievements[200] = 'capturePoints'
-	achievements[201] = 'droppedCapturePoints'
-	achievements[202] = 'originalXP'
-	achievements[203] = 'damageAssistedTrack'
-	achievements[204] = 'damageAssistedRadio'
-	achievements[206] = 'directHitsReceived'
-	achievements[207] = 'noDamageDirectHitsReceived'
-	achievements[208] = 'piercingsReceived'
-	achievements[209] = 'explosionHitsReceived'
-	achievements[210] = 'explosionHits'
-	achievements[211] = 'piercings'
-	achievements[212] = 'xpBefore8_9'
-	achievements[213] = 'battlesCountBefore8_9'
-	achievements[214] = 'xpBefore8_9'
-	achievements[215] = 'battlesCountBefore8_9'
-	achievements[216] = 'winAndSurvived'
-	achievements[217] = 'frags8p'
-	achievements[218] = 'maxDamage'
-	achievements[219] = 'maxDamageVehicle'
-	achievements[220] = 'maxXP'
-	achievements[221] = 'maxXPVehicle'
-	achievements[222] = 'maxFrags'
-	achievements[223] = 'maxFragsVehicle'
-	achievements[224] = 'maxDamage'
-	achievements[225] = 'maxDamageVehicle'
-	achievements[226] = 'battlesCount'
-	achievements[227] = 'sniper2'
-	achievements[228] = 'mainGun'
-	achievements[229] = 'wolfAmongSheep'
-	achievements[230] = 'wolfAmongSheepMedal'
-	achievements[231] = 'geniusForWar'
-	achievements[232] = 'geniusForWarMedal'
-	achievements[233] = 'kingOfTheHill'
-	achievements[234] = 'tacticalBreakthroughSeries'
-	achievements[235] = 'maxTacticalBreakthroughSeries'
-	achievements[236] = 'armoredFist'
-	achievements[237] = 'tacticalBreakthrough'
-	achievements[238] = 'potentialDamageReceived'
-	achievements[239] = 'damageBlockedByArmor'
-	achievements[240] = 'potentialDamageReceived'
-	achievements[241] = 'damageBlockedByArmor'
-	achievements[242] = 'potentialDamageReceived'
-	achievements[243] = 'damageBlockedByArmor'
-	achievements[244] = 'potentialDamageReceived'
-	achievements[245] = 'damageBlockedByArmor'
-	achievements[246] = 'battlesCountBefore9_0'
-	achievements[247] = 'battlesCountBefore9_0'
-	achievements[248] = 'battlesCountBefore9_0'
-	achievements[249] = 'battlesCountBefore9_0'
-	achievements[250] = 'xp'
-	achievements[251] = 'battlesCount'
-	achievements[252] = 'wins'
-	achievements[253] = 'winAndSurvived'
-	achievements[254] = 'losses'
-	achievements[255] = 'survivedBattles'
-	achievements[256] = 'frags'
-	achievements[257] = 'frags8p'
-	achievements[258] = 'shots'
-	achievements[259] = 'directHits'
-	achievements[260] = 'spotted'
-	achievements[261] = 'damageDealt'
-	achievements[262] = 'damageReceived'
-	achievements[263] = 'capturePoints'
-	achievements[264] = 'droppedCapturePoints'
-	achievements[265] = 'originalXP'
-	achievements[266] = 'damageAssistedTrack'
-	achievements[267] = 'damageAssistedRadio'
-	achievements[268] = 'directHitsReceived'
-	achievements[269] = 'noDamageDirectHitsReceived'
-	achievements[270] = 'piercingsReceived'
-	achievements[271] = 'explosionHitsReceived'
-	achievements[272] = 'explosionHits'
-	achievements[273] = 'piercings'
-	achievements[274] = 'potentialDamageReceived'
-	achievements[275] = 'damageBlockedByArmor'
-	achievements[276] = 'maxXP'
-	achievements[277] = 'maxXPVehicle'
-	achievements[278] = 'maxFrags'
-	achievements[279] = 'maxFragsVehicle'
-	achievements[280] = 'maxDamage'
-	achievements[281] = 'maxDamageVehicle'
-	achievements[282] = 'guardsman'
-	achievements[283] = 'makerOfHistory'
-	achievements[284] = 'bothSidesWins'
-	achievements[285] = 'weakVehiclesWins'
-	achievements[286] = 'godOfWar'
-	achievements[287] = 'fightingReconnaissance'
-	achievements[288] = 'fightingReconnaissanceMedal'
-	achievements[289] = 'willToWinSpirit'
-	achievements[290] = 'crucialShot'
-	achievements[291] = 'crucialShotMedal'
-	achievements[292] = 'forTacticalOperations'
-	achievements[293] = 'battleCitizen'
-	achievements[294] = 'movingAvgDamage'
-	achievements[295] = 'marksOnGun'
-	achievements[296] = 'medalMonolith'
-	achievements[297] = 'medalAntiSpgFire'
-	achievements[298] = 'medalGore'
-	achievements[299] = 'medalCoolBlood'
-	achievements[300] = 'medalStark'
-	achievements[301] = 'histBattle1_battlefield'
-	achievements[302] = 'histBattle1_historyLessons'
-	achievements[303] = 'histBattle2_battlefield'
-	achievements[304] = 'histBattle2_historyLessons'
-	achievements[305] = 'histBattle3_battlefield'
-	achievements[306] = 'histBattle3_historyLessons'
-	achievements[307] = 'histBattle4_battlefield'
-	achievements[308] = 'histBattle4_historyLessons'
-	achievements[309] = 'xp'
-	achievements[310] = 'battlesCount'
-	achievements[311] = 'wins'
-	achievements[312] = 'winAndSurvived'
-	achievements[313] = 'losses'
-	achievements[314] = 'survivedBattles'
-	achievements[315] = 'frags'
-	achievements[316] = 'frags8p'
-	achievements[317] = 'shots'
-	achievements[318] = 'directHits'
-	achievements[319] = 'spotted'
-	achievements[320] = 'damageDealt'
-	achievements[321] = 'damageReceived'
-	achievements[322] = 'capturePoints'
-	achievements[323] = 'droppedCapturePoints'
-	achievements[324] = 'originalXP'
-	achievements[325] = 'damageAssistedTrack'
-	achievements[326] = 'damageAssistedRadio'
-	achievements[327] = 'directHitsReceived'
-	achievements[328] = 'noDamageDirectHitsReceived'
-	achievements[329] = 'piercingsReceived'
-	achievements[330] = 'explosionHitsReceived'
-	achievements[331] = 'explosionHits'
-	achievements[332] = 'piercings'
-	achievements[333] = 'potentialDamageReceived'
-	achievements[334] = 'damageBlockedByArmor'
-	achievements[335] = 'maxXP'
-	achievements[336] = 'maxXPVehicle'
-	achievements[337] = 'maxFrags'
-	achievements[338] = 'maxFragsVehicle'
-	achievements[339] = 'maxDamage'
-	achievements[340] = 'maxDamageVehicle'
-	achievements[341] = 'xp'
-	achievements[342] = 'battlesCount'
-	achievements[343] = 'wins'
-	achievements[344] = 'winAndSurvived'
-	achievements[345] = 'losses'
-	achievements[346] = 'survivedBattles'
-	achievements[347] = 'frags'
-	achievements[348] = 'frags8p'
-	achievements[349] = 'shots'
-	achievements[350] = 'directHits'
-	achievements[351] = 'spotted'
-	achievements[352] = 'damageDealt'
-	achievements[353] = 'damageReceived'
-	achievements[354] = 'capturePoints'
-	achievements[355] = 'droppedCapturePoints'
-	achievements[356] = 'originalXP'
-	achievements[357] = 'damageAssistedTrack'
-	achievements[358] = 'damageAssistedRadio'
-	achievements[359] = 'directHitsReceived'
-	achievements[360] = 'noDamageDirectHitsReceived'
-	achievements[361] = 'piercingsReceived'
-	achievements[362] = 'explosionHitsReceived'
-	achievements[363] = 'explosionHits'
-	achievements[364] = 'piercings'
-	achievements[365] = 'potentialDamageReceived'
-	achievements[366] = 'damageBlockedByArmor'
-	achievements[367] = 'maxXP'
-	achievements[368] = 'maxXPVehicle'
-	achievements[369] = 'maxFrags'
-	achievements[370] = 'maxFragsVehicle'
-	achievements[371] = 'maxDamage'
-	achievements[372] = 'maxDamageVehicle'
-	achievements[373] = 'xp'
-	achievements[374] = 'battlesCount'
-	achievements[375] = 'wins'
-	achievements[376] = 'winAndSurvived'
-	achievements[377] = 'losses'
-	achievements[378] = 'survivedBattles'
-	achievements[379] = 'frags'
-	achievements[380] = 'frags8p'
-	achievements[381] = 'shots'
-	achievements[382] = 'directHits'
-	achievements[383] = 'spotted'
-	achievements[384] = 'damageDealt'
-	achievements[385] = 'damageReceived'
-	achievements[386] = 'capturePoints'
-	achievements[387] = 'droppedCapturePoints'
-	achievements[388] = 'originalXP'
-	achievements[389] = 'damageAssistedTrack'
-	achievements[390] = 'damageAssistedRadio'
-	achievements[391] = 'directHitsReceived'
-	achievements[392] = 'noDamageDirectHitsReceived'
-	achievements[393] = 'piercingsReceived'
-	achievements[394] = 'explosionHitsReceived'
-	achievements[395] = 'explosionHits'
-	achievements[396] = 'piercings'
-	achievements[397] = 'potentialDamageReceived'
-	achievements[398] = 'damageBlockedByArmor'
-	achievements[399] = 'xp'
-	achievements[400] = 'battlesCount'
-	achievements[401] = 'wins'
-	achievements[402] = 'winAndSurvived'
-	achievements[403] = 'losses'
-	achievements[404] = 'survivedBattles'
-	achievements[405] = 'frags'
-	achievements[406] = 'frags8p'
-	achievements[407] = 'shots'
-	achievements[408] = 'directHits'
-	achievements[409] = 'spotted'
-	achievements[410] = 'damageDealt'
-	achievements[411] = 'damageReceived'
-	achievements[412] = 'capturePoints'
-	achievements[413] = 'droppedCapturePoints'
-	achievements[414] = 'originalXP'
-	achievements[415] = 'damageAssistedTrack'
-	achievements[416] = 'damageAssistedRadio'
-	achievements[417] = 'directHitsReceived'
-	achievements[418] = 'noDamageDirectHitsReceived'
-	achievements[419] = 'piercingsReceived'
-	achievements[420] = 'explosionHitsReceived'
-	achievements[421] = 'explosionHits'
-	achievements[422] = 'piercings'
-	achievements[423] = 'potentialDamageReceived'
-	achievements[424] = 'damageBlockedByArmor'
-	achievements[425] = 'fortResourceInSorties'
-	achievements[426] = 'maxFortResourceInSorties'
-	achievements[427] = 'fortResourceInBattles'
-	achievements[428] = 'maxFortResourceInBattles'
-	achievements[429] = 'defenceHours'
-	achievements[430] = 'successfulDefenceHours'
-	achievements[431] = 'attackNumber'
-	achievements[432] = 'enemyBasePlunderNumber'
-	achievements[433] = 'enemyBasePlunderNumberInAttack'
-	achievements[434] = 'fortResourceInSorties'
-	achievements[435] = 'maxFortResourceInSorties'
-	achievements[436] = 'fortResourceInBattles'
-	achievements[437] = 'maxFortResourceInBattles'
-	achievements[438] = 'defenceHours'
-	achievements[439] = 'successfulDefenceHours'
-	achievements[440] = 'attackNumber'
-	achievements[441] = 'enemyBasePlunderNumber'
-	achievements[442] = 'enemyBasePlunderNumberInAttack'
-	achievements[443] = 'production'
-	achievements[444] = 'middleBattlesCount'
-	achievements[445] = 'championBattlesCount'
-	achievements[446] = 'absoluteBattlesCount'
-	achievements[447] = 'fortResourceInMiddle'
-	achievements[448] = 'fortResourceInChampion'
-	achievements[449] = 'fortResourceInAbsolute'
-	achievements[450] = 'battlesHours'
-	achievements[451] = 'attackCount'
-	achievements[452] = 'defenceCount'
-	achievements[453] = 'enemyBaseCaptureCount'
-	achievements[454] = 'ownBaseLossCount'
-	achievements[455] = 'ownBaseLossCountInDefence'
-	achievements[456] = 'enemyBaseCaptureCountInAttack'
-	achievements[457] = 'maxXP'
-	achievements[458] = 'maxXPVehicle'
-	achievements[459] = 'maxFrags'
-	achievements[460] = 'maxFragsVehicle'
-	achievements[461] = 'maxDamage'
-	achievements[462] = 'maxDamageVehicle'
-	achievements[463] = 'maxXP'
-	achievements[464] = 'maxXPVehicle'
-	achievements[465] = 'maxFrags'
-	achievements[466] = 'maxFragsVehicle'
-	achievements[467] = 'maxDamage'
-	achievements[468] = 'maxDamageVehicle'
-	achievements[469] = 'promisingFighter'
-	achievements[470] = 'promisingFighterMedal'
-	achievements[471] = 'heavyFire'
-	achievements[472] = 'heavyFireMedal'
-	achievements[473] = 'ranger'
-	achievements[474] = 'rangerMedal'
-	achievements[475] = 'fireAndSteel'
-	achievements[476] = 'fireAndSteelMedal'
-	achievements[477] = 'pyromaniac'
-	achievements[478] = 'pyromaniacMedal'
-	achievements[479] = 'noMansLand'
-	achievements[480] = 'damageRating'
-	achievements[481] = 'citadel'
-	achievements[482] = 'conqueror'
-	achievements[483] = 'fireAndSword'
-	achievements[484] = 'crusher'
-	achievements[485] = 'counterblow'
-	achievements[486] = 'kampfer'
-	achievements[487] = 'soldierOfFortune'
-	achievements[488] = 'WFC2014WinSeries'
-	achievements[489] = 'maxWFC2014WinSeries'
-	achievements[490] = 'WFC2014'
-	achievements[491] = 'histBattle5_battlefield'
-	achievements[492] = 'histBattle5_historyLessons'
-	achievements[493] = 'histBattle6_battlefield'
-	achievements[494] = 'histBattle6_historyLessons'
-	achievements[495] = 'guerrilla'
-	achievements[496] = 'guerrillaMedal'
-	achievements[497] = 'infiltrator'
-	achievements[498] = 'infiltratorMedal'
-	achievements[499] = 'sentinel'
-	achievements[500] = 'sentinelMedal'
-	achievements[501] = 'prematureDetonation'
-	achievements[502] = 'prematureDetonationMedal'
-	achievements[503] = 'bruteForce'
-	achievements[504] = 'bruteForceMedal'
-	achievements[505] = 'awardCount'
-	achievements[506] = 'battleTested'
-	achievements[507] = 'medalRotmistrov'
-	achievements[508] = 'combatCount'
-	achievements[509] = 'combatWins'
-	achievements[510] = 'successDefenceCount'
-	achievements[511] = 'successAttackCount'
-	achievements[512] = 'captureEnemyBuildingTotalCount'
-	achievements[513] = 'lossOwnBuildingTotalCount'
-	achievements[514] = 'resourceCaptureCount'
-	achievements[515] = 'resourceLossCount'
-	achievements[516] = 'reservedInt32'
-	achievements[517] = 'impenetrable'
-	achievements[518] = 'reliableComradeSeries'
-	achievements[519] = 'reliableComrade'
-	achievements[520] = 'maxAimerSeries'
-	achievements[521] = 'shootToKill'
-	achievements[522] = 'fighter'
-	achievements[523] = 'duelist'
-	achievements[524] = 'demolition'
-	achievements[525] = 'arsonist'
-	achievements[526] = 'bonecrusher'
-	achievements[527] = 'charmed'
-	achievements[528] = 'even'
-	achievements[529] = 'reservedInAccountSingleAchievements'
-	achievements[530] = 'wins'
-	achievements[531] = 'capturedBasesInAttack'
-	achievements[532] = 'capturedBasesInDefence'
-	achievements[533] = 'deathTrack'
-	achievements[534] = 'deathTrackWinSeries'
-	achievements[535] = 'maxDeathTrackWinSeries'
-
-	return achievements
-
-
 
 if __name__ == '__main__':
 	main()
